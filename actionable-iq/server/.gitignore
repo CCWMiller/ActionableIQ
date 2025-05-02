@@ -1,0 +1,54 @@
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+build/
+bld/
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+msbuild.log
+msbuild.err
+msbuild.wrn
+
+# Visual Studio files
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# Credentials and sensitive information
+ActionableIQ.Api/appsettings.json
+**/credentials/*.json
+**/credentials/*.p12
+**/credentials/*.pem
+**/credentials/*.key
+**/appsettings.*.json
+*secrets*.json
+*secrets*.xml
+*.pfx
+*.key
+*.pem
+*.env
+*.env.*
+*launchSettings.json
+
+# Entity Framework Migrations
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+**/logs/
+**/log/
+*.log
+
+# Test Results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+**/coverage/
