@@ -1,0 +1,58 @@
+steps:
+# Build Frontend Image
+- name: 'gcr.io/cloud-builders/docker'
+  args: [
+    'build',
+    '-t', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/frontend-repo/frontend-app:$COMMIT_SHA',
+    '--build-arg', 'REACT_APP_API_URL=${_API_URL}', # Define _API_URL substitution if needed
+    './client'
+  ]
+  id: 'Build Frontend'
+
+# Build Backend Image
+- name: 'gcr.io/cloud-builders/docker'
+  args: [
+    'build',
+    '-t', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/backend-repo/backend-app:$COMMIT_SHA',
+    './server'
+  ]
+  id: 'Build Backend'
+
+# Push Frontend Image
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/frontend-repo/frontend-app:$COMMIT_SHA']
+  id: 'Push Frontend'
+
+# Push Backend Image
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/backend-repo/backend-app:$COMMIT_SHA']
+  id: 'Push Backend'
+
+# Create Cloud Deploy Release
+# This step uses the gcloud image which has necessary tools installed.
+- name: 'google/cloud-sdk:latest'
+  entrypoint: gcloud # Specify entrypoint to ensure gcloud command is used
+  args:
+    - deploy
+    - releases
+    - create
+    - 'rel-${SHORT_SHA}' # Use short commit SHA for release name
+    - '--delivery-pipeline=actionable-iq-pipeline' # Your pipeline name
+    - '--region=${_REGION}'
+    - '--source=.' # Use the checked-out source containing skaffold.yaml etc.
+    # Explicitly pass the images built in previous steps
+    - '--images=frontend-image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/frontend-repo/frontend-app:${COMMIT_SHA},backend-image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/backend-repo/backend-app:${COMMIT_SHA}'
+  id: 'Create Cloud Deploy Release'
+
+# List images pushed (optional, for verification)
+images:
+- '${_REGION}-docker.pkg.dev/${PROJECT_ID}/frontend-repo/frontend-app:$COMMIT_SHA'
+- '${_REGION}-docker.pkg.dev/${PROJECT_ID}/backend-repo/backend-app:$COMMIT_SHA'
+
+# Substitutions (Define defaults or allow trigger to override)
+substitutions:
+  _REGION: 'us-central1' # !!! CHANGE THIS to your preferred region !!!
+  _API_URL: '/api'      # Default API path for frontend build
+
+options:
+  logging: CLOUD_LOGGING_ONLY # Send logs directly to Cloud Logging
