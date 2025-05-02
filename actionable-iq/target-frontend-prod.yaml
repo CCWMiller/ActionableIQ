@@ -1,0 +1,8 @@
+apiVersion: deploy.cloud.google.com/v1
+kind: Target
+metadata:
+  name: frontend-prod
+  description: Production Frontend Cloud Run Service
+requireApproval: true # Require approval for production
+run:
+  location: projects/actionableiq/locations/us-east5
