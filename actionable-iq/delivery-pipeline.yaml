@@ -1,0 +1,22 @@
+    apiVersion: deploy.cloud.google.com/v1
+    kind: DeliveryPipeline
+    metadata:
+      name: actionable-iq-pipeline # Name of the pipeline
+    description: Frontend and Backend deployment pipeline
+    serialPipeline: # Defines stages that run sequentially
+      stages:
+        # --- Staging Stage ---
+        - targetId: frontend-staging # First target in this stage
+          profiles: # Skaffold profiles to use for this stage
+            - staging
+        - targetId: backend-staging  # Second target in this stage (runs concurrently with frontend-staging if resources allow, or sequentially)
+          profiles: # Skaffold profiles to use for this stage
+            - staging
+        # --- Production Stage ---
+        # This stage runs only after the Staging stage is complete and the release is promoted
+        - targetId: frontend-prod # First target in the production stage
+          profiles:
+            - production
+        - targetId: backend-prod  # Second target in the production stage
+          profiles:
+            - production
