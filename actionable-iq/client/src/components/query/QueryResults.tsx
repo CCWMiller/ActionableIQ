@@ -66,7 +66,6 @@ const QueryResults: React.FC<QueryResultsProps> = ({
 
   // Create a map for easy lookup when properties load
   useEffect(() => {
-    console.log('[QueryResults] Properties from state:', allProperties); // Log raw properties
     if (allProperties && allProperties.length > 0) {
       const map = allProperties.reduce((acc, prop) => {
         // Ensure both ID and DisplayName exist
@@ -84,7 +83,6 @@ const QueryResults: React.FC<QueryResultsProps> = ({
         return acc;
       }, {} as Record<string, string>);
       setPropertyMap(map);
-      console.log('[QueryResults] Created property ID-to-Name map:', map); // Check this log
     } else {
       console.log('[QueryResults] No properties found in state to build map.');
     }
@@ -100,18 +98,18 @@ const QueryResults: React.FC<QueryResultsProps> = ({
       hasError: !!error
     });
     
-    if (results) {
-      console.log('[QueryResults] Query results object:', results); // Log the full results object
-      console.log('[QueryResults] Multi-results structure:', {
-        successCount: results.results?.length ?? 0,
-        errorCount: results.errors?.length ?? 0,
-        firstSuccessResult: results.results?.[0] ? {
-           propertyId: results.results[0].propertyId, // Log the ID format here
-           rowCount: results.results[0].rowCount,
-           hasRows: !!results.results[0].rows && results.results[0].rows.length > 0,
-        } : 'No successful results'
-      });
-    }
+    // if (results) {
+    //   console.log('[QueryResults] Query results object:', results); // Log the full results object
+    //   console.log('[QueryResults] Multi-results structure:', {
+    //     successCount: results.results?.length ?? 0,
+    //     errorCount: results.errors?.length ?? 0,
+    //     firstSuccessResult: results.results?.[0] ? {
+    //        propertyId: results.results[0].propertyId, // Log the ID format here
+    //        rowCount: results.results[0].rowCount,
+    //        hasRows: !!results.results[0].rows && results.results[0].rows.length > 0,
+    //     } : 'No successful results'
+    //   });
+    // }
   }, [results, isLoading, error]);
   
   // Get query date range from active query or use fallback
@@ -311,7 +309,7 @@ const QueryResults: React.FC<QueryResultsProps> = ({
   
   // Handle sending emails
   const handleSendEmails = async (emails: string[]) => {
-    console.log("[handleSendEmails] called with recipients:", emails); // Use console.log
+    
     try {
       // --- Generate CSV data from current results FIRST ---
       console.log("[handleSendEmails] Generating CSV data from current results..."); // Use console.log
@@ -345,7 +343,7 @@ const QueryResults: React.FC<QueryResultsProps> = ({
       };
 
       // Use the dedicated email endpoint
-      console.log("[handleSendEmails] Preparing to send email via /api/report/email with pre-generated CSV"); // Use console.log
+      console.log("[handleSendEmails] Preparing to send email"); // Use console.log
       const endpointUrl = 'http://localhost:5190/api/report/email';
       const requestOptions = {
         method: 'POST',
@@ -356,8 +354,6 @@ const QueryResults: React.FC<QueryResultsProps> = ({
         body: JSON.stringify(emailRequestPayload) // Send the correct payload
       };
 
-      console.log(`[handleSendEmails] Fetch URL: ${endpointUrl}`);
-      console.log(`[handleSendEmails] Fetch Method: ${requestOptions.method}`);
       // Avoid logging the full Authorization header in production
       console.log('[handleSendEmails] Fetch Headers:', { 
           'Content-Type': requestOptions.headers['Content-Type'],

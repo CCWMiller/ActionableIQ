@@ -13,7 +13,6 @@ const LandingPage: React.FC = () => {
   useEffect(() => {
     // When user is authenticated, redirect to the Query Page
     if (isAuthenticated && !loading) {
-      console.log('User authenticated:', user);
       navigate('/query');
     }
   }, [isAuthenticated, user, loading, navigate]);

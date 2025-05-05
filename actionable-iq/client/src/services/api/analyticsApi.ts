@@ -72,22 +72,6 @@ export const analyticsApi = {
         } : 'No successful results'
       });
       
-      // Log sample data (first few rows of the first successful result)
-      const firstResult = response.results?.[0];
-      if (firstResult && firstResult.rows && firstResult.rows.length > 0) {
-        console.log('[Analytics API] Sample data (from first result):');
-        const sampleSize = Math.min(3, firstResult.rows.length);
-        for (let i = 0; i < sampleSize; i++) {
-          const row = firstResult.rows[i];
-          console.log(`Row ${i}:`, {
-            dimensions: row.dimensionValues.map(d => d.value),
-            metrics: row.metricValues.map(m => m.value)
-          });
-        }
-      } else {
-        console.warn('[Analytics API] Query returned no data rows in the first successful result or no successful results');
-      }
-      
       // Log any errors
       if (response.errors && response.errors.length > 0) {
         console.warn('[Analytics API] Query encountered errors:', response.errors);
@@ -122,15 +106,6 @@ export const analyticsApi = {
           rowCount: response.rowCount,
           hasData: response.rows && response.rows.length > 0
         });
-        
-        // Log the first row of each result if available
-        if (response.rows && response.rows.length > 0) {
-          const firstRow = response.rows[0];
-          console.log(`[Analytics API] Batch ${index} first row:`, {
-            dimensions: firstRow.dimensionValues.map(d => d.value),
-            metrics: firstRow.metricValues.map(m => m.value)
-          });
-        }
       });
       
       return responses;

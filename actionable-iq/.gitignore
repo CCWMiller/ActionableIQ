@@ -1,0 +1,48 @@
+# --- General ---
+.DS_Store
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# --- Node / React ---
+node_modules/
+build/
+dist/
+coverage/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# --- .NET / Visual Studio ---
+bin/
+obj/
+*.vs/
+.vscode/ # Exclude VS Code workspace settings unless shared intentionally
+*.csproj.user
+*.dbmdl
+*.jfm
+*.[Pp]ublish.xml
+*.pfx
+*.publishsettings
+modules/ # If using PowerShell modules locally
+
+# --- Cloud Build / Skaffold ---
+.skaffold/
+
+# --- Secrets ---
+# Add any files containing secrets or sensitive keys
+secrets.json
+*.pem
+*.key
+
+# --- OS Generated Files ---
+Thumbs.db
+ehthumbs.db
+Desktop.ini

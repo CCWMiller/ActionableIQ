@@ -24,14 +24,14 @@ const ReportResults: React.FC<ReportResultsProps> = ({ results, className = '' }
   
   // Log component data for debugging
   useEffect(() => {
-    console.log('[ReportResults] Component rendered with results:', {
-      hasResults: !!results,
-      rowCount: results?.rowCount || 0,
-      hasMetadata: !!results?.metadata,
-      hasDimensionHeaders: !!results?.dimensionHeaders && results.dimensionHeaders.length > 0,
-      hasMetricHeaders: !!results?.metricHeaders && results.metricHeaders.length > 0,
-      hasRows: !!results?.rows && results.rows.length > 0
-    });
+    // console.log('[ReportResults] Component rendered with results:', {
+    //   hasResults: !!results,
+    //   rowCount: results?.rowCount || 0,
+    //   hasMetadata: !!results?.metadata,
+    //   hasDimensionHeaders: !!results?.dimensionHeaders && results.dimensionHeaders.length > 0,
+    //   hasMetricHeaders: !!results?.metricHeaders && results.metricHeaders.length > 0,
+    //   hasRows: !!results?.rows && results.rows.length > 0
+    // });
     
     if (results?.rows && results.rows.length > 0) {
       console.log('[ReportResults] Sample row:', {
@@ -55,9 +55,9 @@ const ReportResults: React.FC<ReportResultsProps> = ({ results, className = '' }
   const metrics: ReportMetrics = calculateReportMetrics(results);
   
   // Log the calculated metrics
-  useEffect(() => {
-    console.log('[ReportResults] Calculated metrics:', metrics);
-  }, [metrics]);
+  // useEffect(() => {
+  //   console.log('[ReportResults] Calculated metrics:', metrics);
+  // }, [metrics]);
   
   // Handle email button click
   const handleEmailClick = () => {
