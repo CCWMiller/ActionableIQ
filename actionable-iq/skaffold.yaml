@@ -1,81 +1,65 @@
-apiVersion: skaffold/v4beta7 # Ensure this version is supported by Cloud Deploy
+# actionable-iq/skaffold.yaml
+apiVersion: skaffold/v4beta7
 kind: Config
 metadata:
-  name: actionable-iq-deployment # Name for this Skaffold configuration
-build:
-  # Defines the artifacts (images) Skaffold knows about.
-  # The actual build happens in Cloud Build, but Skaffold needs this mapping.
-  artifacts:
-      # Frontend artifact
-    - image: ${_REGION}-docker.pkg.dev/$PROJECT_ID/frontend-repo/frontend-app
-      context: client # Path to the Dockerfile context relative to skaffold.yaml
-      # Backend artifact
-    - image: ${_REGION}-docker.pkg.dev/$PROJECT_ID/backend-repo/backend-app
-      context: server # Path to the Dockerfile context relative to skaffold.yaml
-  # Specifies that Google Cloud Build is responsible for building/tagging.
-  # Cloud Deploy uses this info to find the images passed via '--images' flag.
-  googleCloudBuild:
-    projectId: $PROJECT_ID # Uses the default project from gcloud config
+  name: actionable-iq-deployment
 
-# Defines how to deploy the application
+# YOUR EXISTING BUILD SECTION (Should be fine)
+build:
+  artifacts:
+    - image: ${_REGION}-docker.pkg.dev/$PROJECT_ID/frontend-repo/frontend-app
+      context: client
+    - image: ${_REGION}-docker.pkg.dev/$PROJECT_ID/backend-repo/backend-app
+      context: server
+  googleCloudBuild:
+    projectId: $PROJECT_ID
+
+# YOUR EXISTING DEPLOY SECTION (Should be fine)
 deploy:
-  # Specifies Cloud Run as the deployment target platform
   cloudrun: {}
 
-# Defines the manifests (service definitions) to deploy
+# Base manifests - Skaffold needs to know about them globally
 manifests:
-  # Uses raw YAML files for service definitions
   rawYaml:
     - service-frontend.yaml
     - service-backend.yaml
 
-# Defines different configurations for specific environments (stages)
+# NEW PROFILES SECTION (Replace your old profiles section with this)
 profiles:
-  - name: staging
+  # --- Staging Profiles ---
+  - name: staging-frontend # Profile specifically for staging frontend
+    manifests:
+      rawYaml:
+        - service-frontend.yaml # Only this manifest
     patches:
-      # Patch for frontend service (service-frontend.yaml)
       - op: replace
-        path: /spec/template/spec/containers/0/env/0/value # Path to REACT_APP_API_URL
-        value: "https://staging-backend-service-url" # Replace with ACTUAL staging backend URL
-        # Add these lines to target the frontend service:
-        apiVersion: serving.knative.dev/v1
-        kind: Service
-        name: frontend-service # Matches metadata.name in service-frontend.yaml
+        path: /spec/template/spec/containers/0/env/0/value # For REACT_APP_API_URL
+        value: "https://staging-backend-service-url" # Replace with actual URL later
 
-      # Patch for backend service (service-backend.yaml)
+  - name: staging-backend # Profile specifically for staging backend
+    manifests:
+      rawYaml:
+        - service-backend.yaml # Only this manifest
+    patches:
       - op: replace
-        path: /spec/template/spec/containers/0/env/0/value # Path to ASPNETCORE_ENVIRONMENT
+        path: /spec/template/spec/containers/0/env/0/value # For ASPNETCORE_ENVIRONMENT
         value: "Staging"
-        # Add these lines to target the backend service:
-        apiVersion: serving.knative.dev/v1
-        kind: Service
-        name: backend-service # Matches metadata.name in service-backend.yaml
-    manifests:
-     rawYaml:
-        - service-frontend.yaml
-        - service-backend.yaml
 
-    # Configuration for the 'production' stage in the Cloud Deploy pipeline
-  - name: production
+  # --- Production Profiles ---
+  - name: production-frontend # Profile specifically for production frontend
+    manifests:
+      rawYaml:
+        - service-frontend.yaml # Only this manifest
     patches:
-      # Patch for frontend service (service-frontend.yaml)
       - op: replace
-        path: /spec/template/spec/containers/0/env/0/value # Path to REACT_APP_API_URL
-        value: "https://production-backend-service-url" # Replace with ACTUAL production backend URL
-        # Add these lines to target the frontend service:
-        apiVersion: serving.knative.dev/v1
-        kind: Service
-        name: frontend-service # Matches metadata.name in service-frontend.yaml
+        path: /spec/template/spec/containers/0/env/0/value # For REACT_APP_API_URL
+        value: "https://production-backend-service-url" # Replace with actual URL later
 
-      # Patch for backend service (service-backend.yaml)
-      - op: replace
-        path: /spec/template/spec/containers/0/env/0/value # Path to ASPNETCORE_ENVIRONMENT
-        value: "Production"
-        # Add these lines to target the backend service:
-        apiVersion: serving.knative.dev/v1
-        kind: Service
-        name: backend-service # Matches metadata.name in service-backend.yaml
+  - name: production-backend # Profile specifically for production backend
     manifests:
-     rawYaml:
-        - service-frontend.yaml
-        - service-backend.yaml
+      rawYaml:
+        - service-backend.yaml # Only this manifest
+    patches:
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0/value # For ASPNETCORE_ENVIRONMENT
+        value: "Production"
