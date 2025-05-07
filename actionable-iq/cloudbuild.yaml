@@ -39,7 +39,7 @@ steps:
     - 'rel-${SHORT_SHA}' # Use short commit SHA for release name
     - '--delivery-pipeline=actionable-iq-pipeline' # Your pipeline name
     - '--region=${_REGION}'
-    - '--source=.' # Use the checked-out source containing skaffold.yaml etc.
+    - '--source=actionable-iq' # Use the checked-out source containing skaffold.yaml etc.
     # Explicitly pass the images built in previous steps
     - '--images=frontend-image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/frontend-repo/frontend-app:${COMMIT_SHA},backend-image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/backend-repo/backend-app:${COMMIT_SHA}'
   id: 'Create Cloud Deploy Release'
