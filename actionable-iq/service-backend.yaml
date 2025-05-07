@@ -28,12 +28,11 @@ spec:
             secretKeyRef:
               name: mailgun-api-key         # Replace with your Secret Manager secret name
               version: latest               # Use 'latest' or a specific version number if needed
-        # Example: Loading a database connection string from Secret Manager
-        # - name: ConnectionStrings__DefaultConnection
-        #   valueSource:
-        #     secretKeyRef:
-        #       name: your-db-connection-string-secret
-        #       version: latest
+        - name: ConnectionStrings__DefaultConnection # Key name expected by .NET Config
+          valueFrom:
+            secretKeyRef:
+              name: actionableiq-db-connection-string # The name you gave the secret in Secret Manager
+              key: latest # Use the latest version
         resources:
           limits:
             cpu: "2000m"
