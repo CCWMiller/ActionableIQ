@@ -8,8 +8,8 @@ WORKDIR /source
 COPY *.sln .
 # Copy the main project file for your API/backend
 COPY ActionableIQ.API/ActionableIQ.API.csproj ./ActionableIQ.API/
-COPY ActionableIQ.Core/ActionableIQ.Core.csproj ./ActionableIQ.Core/       # <-- ADD THIS LINE
-COPY ActionableIQ.Tests/ActionableIQ.Tests.csproj ./ActionableIQ.Tests/   # <-- ADD THIS LINE
+COPY ActionableIQ.Core/ActionableIQ.Core.csproj ./ActionableIQ.Core/
+COPY ActionableIQ.Tests/ActionableIQ.Tests.csproj ./ActionableIQ.Tests/
 # --- !!! IMPORTANT !!! ---
 # Add 'COPY' lines here for *all other* .csproj files in your solution
 # Example: COPY tests/YourTestsProject/YourTestsProject.csproj ./tests/YourTestsProject/
