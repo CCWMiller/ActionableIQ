@@ -7,7 +7,7 @@ WORKDIR /source
 # Copy the solution file first (if you have one)
 COPY *.sln .
 # Copy the main project file for your API/backend
-COPY src/ActionableIQ.API/ActionableIQ.API.csproj ./src/ActionableIQ.API/
+COPY ActionableIQ.API/ActionableIQ.API.csproj ./ActionableIQ.API/
 # --- !!! IMPORTANT !!! ---
 # Add 'COPY' lines here for *all other* .csproj files in your solution
 # Example: COPY tests/YourTestsProject/YourTestsProject.csproj ./tests/YourTestsProject/
@@ -22,7 +22,7 @@ RUN dotnet restore "ActionableIQ.sln"
 COPY . .
 
 # Set the working directory to the main project
-WORKDIR "/source/src/ActionableIQ.API"
+WORKDIR "/source/ActionableIQ.API"
 # Publish the application in Release configuration
 # --no-restore is used because we already restored dependencies
 RUN dotnet publish "ActionableIQ.API.csproj" -c Release -o /app/publish --no-restore
