@@ -31,21 +31,25 @@ manifests:
 
 # Defines different configurations for specific environments (stages)
 profiles:
-    # Configuration for the 'staging' stage in the Cloud Deploy pipeline
   - name: staging
     patches:
-        # Patch frontend service: Set API_URL env var (if defined in service-frontend.yaml)
-        # Assumes API_URL is the first env var (index 0). Adjust if needed.
+      # Patch for frontend service (service-frontend.yaml)
       - op: replace
-        path: /spec/template/spec/containers/0/env/0/value
-        value: "https://staging-backend-service-url" # Replace with ACTUAL staging backend URL after first deployment
+        path: /spec/template/spec/containers/0/env/0/value # Path to REACT_APP_API_URL
+        value: "https://staging-backend-service-url" # Replace with ACTUAL staging backend URL
+        # Add these lines to target the frontend service:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: frontend-service # Matches metadata.name in service-frontend.yaml
 
-        # Patch backend service: Set ASPNETCORE_ENVIRONMENT to Staging
-        # Assumes ASPNETCORE_ENVIRONMENT is the first env var (index 0). Adjust if needed.
+      # Patch for backend service (service-backend.yaml)
       - op: replace
-        path: /spec/template/spec/containers/0/env/0/value
+        path: /spec/template/spec/containers/0/env/0/value # Path to ASPNETCORE_ENVIRONMENT
         value: "Staging"
-    # Re-list manifests to ensure patches apply correctly within the profile
+        # Add these lines to target the backend service:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: backend-service # Matches metadata.name in service-backend.yaml
     manifests:
      rawYaml:
         - service-frontend.yaml
@@ -54,18 +58,23 @@ profiles:
     # Configuration for the 'production' stage in the Cloud Deploy pipeline
   - name: production
     patches:
-        # Patch frontend service: Set API_URL env var (if defined)
-        # Assumes API_URL is the first env var (index 0).
+      # Patch for frontend service (service-frontend.yaml)
       - op: replace
-        path: /spec/template/spec/containers/0/env/0/value
+        path: /spec/template/spec/containers/0/env/0/value # Path to REACT_APP_API_URL
         value: "https://production-backend-service-url" # Replace with ACTUAL production backend URL
+        # Add these lines to target the frontend service:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: frontend-service # Matches metadata.name in service-frontend.yaml
 
-        # Patch backend service: Set ASPNETCORE_ENVIRONMENT to Production (already default, but explicit)
-        # Assumes ASPNETCORE_ENVIRONMENT is the first env var (index 0).
+      # Patch for backend service (service-backend.yaml)
       - op: replace
-        path: /spec/template/spec/containers/0/env/0/value
+        path: /spec/template/spec/containers/0/env/0/value # Path to ASPNETCORE_ENVIRONMENT
         value: "Production"
-    # Re-list manifests
+        # Add these lines to target the backend service:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: backend-service # Matches metadata.name in service-backend.yaml
     manifests:
      rawYaml:
         - service-frontend.yaml
