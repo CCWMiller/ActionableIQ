@@ -9,7 +9,6 @@ import AppLayout from './components/layout/AppLayout';
 import QueryPage from './features/query/QueryPage';
 
 // Placeholder component for Excel Upload page
-// This will be implemented later
 const ExcelUploadPage = () => <div className="p-4 bg-white rounded-lg shadow">Excel Upload Page (Protected)</div>;
 
 function App() {
