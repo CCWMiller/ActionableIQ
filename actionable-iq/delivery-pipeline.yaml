@@ -9,14 +9,14 @@ serialPipeline:
     # --- Staging Stage ---
     - targetId: frontend-staging
       profiles:
-        - staging-frontend # Must match a profile name in skaffold.yaml
+        - stagingFrontend # Must match a profile name in skaffold.yaml
     - targetId: backend-staging
       profiles:
-        - staging-backend  # Must match a profile name in skaffold.yaml
+        - stagingBackend  # Must match a profile name in skaffold.yaml
     # --- Production Stage ---
     - targetId: frontend-prod
       profiles:
-        - production-frontend # Must match a profile name in skaffold.yaml
+        - productionFrontend # Must match a profile name in skaffold.yaml
     - targetId: backend-prod
       profiles:
-        - production-backend  # Must match a profile name in skaffold.yaml
+        - productionBackend  # Must match a profile name in skaffold.yaml

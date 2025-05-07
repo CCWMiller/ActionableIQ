@@ -27,7 +27,7 @@ manifests:
 # NEW PROFILES SECTION (Replace your old profiles section with this)
 profiles:
   # --- Staging Profiles ---
-  - name: staging-frontend # Profile specifically for staging frontend
+  - name: stagingFrontend # Profile specifically for staging frontend
     manifests:
       rawYaml:
         - service-frontend.yaml # Only this manifest
@@ -36,7 +36,7 @@ profiles:
         path: /spec/template/spec/containers/0/env/0/value # For REACT_APP_API_URL
         value: "https://staging-backend-service-url" # Replace with actual URL later
 
-  - name: staging-backend # Profile specifically for staging backend
+  - name: stagingBackend # Profile specifically for staging backend
     manifests:
       rawYaml:
         - service-backend.yaml # Only this manifest
@@ -46,7 +46,7 @@ profiles:
         value: "Staging"
 
   # --- Production Profiles ---
-  - name: production-frontend # Profile specifically for production frontend
+  - name: productionFrontend # Profile specifically for production frontend
     manifests:
       rawYaml:
         - service-frontend.yaml # Only this manifest
@@ -55,7 +55,7 @@ profiles:
         path: /spec/template/spec/containers/0/env/0/value # For REACT_APP_API_URL
         value: "https://production-backend-service-url" # Replace with actual URL later
 
-  - name: production-backend # Profile specifically for production backend
+  - name: productionBackend # Profile specifically for production backend
     manifests:
       rawYaml:
         - service-backend.yaml # Only this manifest
