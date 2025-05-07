@@ -19,9 +19,9 @@ spec:
         # The 'image' field will be automatically replaced by Skaffold/Cloud Deploy
         # based on the '--images' flag passed to 'gcloud deploy releases create'
       - image: frontend-image # Do not change this placeholder manually
-        ports:
+        #ports:
           # Port exposed by Nginx in the frontend Docker container
-        - containerPort: 80
+        #- containerPort: 80
         # Optional: Define environment variables for the frontend container
         # Example: If you need to configure API URL at runtime instead of build time
         env:
