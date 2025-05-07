@@ -29,8 +29,13 @@ COPY --from=build /app/build /usr/share/nginx/html
 # Copy the custom Nginx configuration file
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+# Copy and prepare the entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 # Expose port 80 for Nginx
 EXPOSE 80
 
 # Start Nginx when the container launches
-CMD ["nginx", "-g", "daemon off;"]
+# CMD ["nginx", "-g", "daemon off;"]
+ENTRYPOINT ["/entrypoint.sh"]
