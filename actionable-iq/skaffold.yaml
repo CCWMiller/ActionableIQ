@@ -27,7 +27,7 @@ manifests:
 # NEW PROFILES SECTION (Replace your old profiles section with this)
 profiles:
   # --- Staging Profiles ---
-  - name: stagingFrontend # Profile specifically for staging frontend
+  - name: profileABC # Profile specifically for staging frontend
     manifests:
       rawYaml:
         - service-frontend.yaml # Only this manifest

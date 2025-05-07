@@ -9,7 +9,7 @@ serialPipeline:
     # --- Staging Stage ---
     - targetId: frontend-staging
       profiles:
-        - stagingFrontend # Must match a profile name in skaffold.yaml
+        - profileABC # Must match a profile name in skaffold.yaml
     - targetId: backend-staging
       profiles:
         - stagingBackend  # Must match a profile name in skaffold.yaml
