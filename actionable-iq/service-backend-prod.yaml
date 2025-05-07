@@ -1,0 +1,38 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  # Name of the Cloud Run service for the backend
+  name: backend-service
+  # Optional: Annotations
+  # annotations:
+  #   run.googleapis.com/ingress: internal-and-cloud-load-balancing # Example: Allow only internal or LB traffic
+spec:
+  template:
+    metadata:
+      # Optional: Revision-specific annotations
+      # annotations:
+      #   autoscaling.knative.dev/maxScale: '10'
+    spec:
+      # Set the service account the revision runs as (replace with your service account email)
+      serviceAccountName: 788583965739-compute@developer.gserviceaccount.com
+      containers:
+      - image: placeholder-backend-image # Do not change this placeholder manually
+        ports:
+        - containerPort: 8080
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Production"
+        - name: MAILGUN_API_KEY
+          valueSource:
+            secretKeyRef:
+              name: mailgun-api-key         # Replace with your Secret Manager secret name
+              version: latest               # Use 'latest' or a specific version number if needed
+        - name: ConnectionStrings__DefaultConnection # Key name expected by .NET Config
+          valueFrom:
+            secretKeyRef:
+              name: actionableiq-db-connection-string # The name you gave the secret in Secret Manager
+              key: latest # Use the latest version
+        resources:
+          limits:
+            cpu: "2000m"
+            memory: "1Gi"

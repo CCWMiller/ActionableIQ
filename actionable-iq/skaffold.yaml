@@ -4,7 +4,6 @@ kind: Config
 metadata:
   name: actionable-iq-deployment
 
-# YOUR EXISTING BUILD SECTION (Should be fine)
 build:
   artifacts:
     - image: ${_REGION}-docker.pkg.dev/$PROJECT_ID/frontend-repo/frontend-app
@@ -14,52 +13,21 @@ build:
   googleCloudBuild:
     projectId: $PROJECT_ID
 
-# YOUR EXISTING DEPLOY SECTION (Should be fine)
 deploy:
   cloudrun: {}
+  # No global manifests needed if all are profile-specific
 
-# Base manifests - Skaffold needs to know about them globally
-manifests:
-  rawYaml:
-    - service-frontend.yaml
-    - service-backend.yaml
-
-# NEW PROFILES SECTION (Replace your old profiles section with this)
 profiles:
-  # --- Staging Profiles ---
-  - name: profileABC # Profile specifically for staging frontend
+  - name: staging
     manifests:
       rawYaml:
-        - service-frontend.yaml # Only this manifest
-    patches:
-      - op: replace
-        path: /spec/template/spec/containers/0/env/0/value # For REACT_APP_API_URL
-        value: "https://staging-backend-service-url" # Replace with actual URL later
+        - service-frontend-staging.yaml # Specific to staging
+        - service-backend-staging.yaml  # Specific to staging
+    # No patches needed if values are set directly in these files
 
-  - name: stagingBackend # Profile specifically for staging backend
+  - name: production
     manifests:
       rawYaml:
-        - service-backend.yaml # Only this manifest
-    patches:
-      - op: replace
-        path: /spec/template/spec/containers/0/env/0/value # For ASPNETCORE_ENVIRONMENT
-        value: "Staging"
-
-  # --- Production Profiles ---
-  - name: productionFrontend # Profile specifically for production frontend
-    manifests:
-      rawYaml:
-        - service-frontend.yaml # Only this manifest
-    patches:
-      - op: replace
-        path: /spec/template/spec/containers/0/env/0/value # For REACT_APP_API_URL
-        value: "https://production-backend-service-url" # Replace with actual URL later
-
-  - name: productionBackend # Profile specifically for production backend
-    manifests:
-      rawYaml:
-        - service-backend.yaml # Only this manifest
-    patches:
-      - op: replace
-        path: /spec/template/spec/containers/0/env/0/value # For ASPNETCORE_ENVIRONMENT
-        value: "Production"
+        - service-frontend-prod.yaml # Specific to prod
+        - service-backend-prod.yaml  # Specific to prod
+    # No patches needed

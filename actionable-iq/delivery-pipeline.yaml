@@ -6,17 +6,15 @@ metadata:
 description: Frontend and Backend deployment pipeline
 serialPipeline:
   stages:
-    # --- Staging Stage ---
     - targetId: frontend-staging
       profiles:
-        - profileABC # Must match a profile name in skaffold.yaml
+        - staging # Uses the generic 'staging' Skaffold profile
     - targetId: backend-staging
       profiles:
-        - stagingBackend  # Must match a profile name in skaffold.yaml
-    # --- Production Stage ---
+        - staging  # Also uses the generic 'staging' Skaffold profile
     - targetId: frontend-prod
       profiles:
-        - productionFrontend # Must match a profile name in skaffold.yaml
+        - production # Uses the generic 'production' Skaffold profile
     - targetId: backend-prod
       profiles:
-        - productionBackend  # Must match a profile name in skaffold.yaml
+        - production # Also uses the generic 'production' Skaffold profile
