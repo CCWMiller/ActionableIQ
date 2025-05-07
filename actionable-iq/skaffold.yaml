@@ -6,9 +6,9 @@ metadata:
 
 build:
   artifacts:
-    - image: ${_REGION}-docker.pkg.dev/$PROJECT_ID/frontend-repo/frontend-app
+    - image: frontend-image
       context: client
-    - image: ${_REGION}-docker.pkg.dev/$PROJECT_ID/backend-repo/backend-app
+    - image: backend-image
       context: server
   googleCloudBuild:
     projectId: $PROJECT_ID

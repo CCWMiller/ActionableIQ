@@ -16,7 +16,7 @@ spec:
       # Set the service account the revision runs as (replace with your service account email)
       serviceAccountName: 788583965739-compute@developer.gserviceaccount.com
       containers:
-      - image: placeholder-backend-image # Do not change this placeholder manually
+      - image: backend-image # Do not change this placeholder manually
         ports:
         - containerPort: 8080
         env:
