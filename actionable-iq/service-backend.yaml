@@ -22,7 +22,7 @@ spec:
         env:
         - name: ASPNETCORE_ENVIRONMENT
           value: "Production"
-        # Example: Loading a Mailgun API key from Secret Manager
+
         - name: MAILGUN_API_KEY
           valueSource:
             secretKeyRef:
