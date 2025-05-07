@@ -5,7 +5,7 @@ steps:
     'build',
     '-t', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/frontend-repo/frontend-app:$COMMIT_SHA',
     '--build-arg', 'REACT_APP_API_URL=${_API_URL}', # Define _API_URL substitution if needed
-    './client'
+    'actionable-iq/client'
   ]
   id: 'Build Frontend'
 
@@ -14,7 +14,7 @@ steps:
   args: [
     'build',
     '-t', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/backend-repo/backend-app:$COMMIT_SHA',
-    './server'
+    'actionable-iq/server'
   ]
   id: 'Build Backend'
 
