@@ -39,5 +39,8 @@ EXPOSE 80
 
 # Start Nginx when the container launches
 # CMD ["nginx", "-g", "daemon off;"]
-ENTRYPOINT ["/entrypoint.sh"]
+# ENTRYPOINT ["/entrypoint.sh"]
 # CMD ["echo", "Minimal container started successfully! Sleeping..."; "sleep", "300"]
+
+# Temporary ENTRYPOINT for debugging
+ENTRYPOINT ["/bin/sh", "-c", "echo 'SIMPLE ENTRYPOINT TEST LOG - STARTING CONTAINER' && ls -la / && echo 'SIMPLE ENTRYPOINT TEST LOG - WAITING' && sleep 300 && echo 'SIMPLE ENTRYPOINT TEST LOG - SLEEP DONE'"]
