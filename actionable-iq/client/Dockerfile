@@ -24,18 +24,19 @@ RUN npm run build
 FROM nginx:1.25-alpine
 
 # Copy the production build output from the build stage
-COPY --from=build /app/build /usr/share/nginx/html
+#COPY --from=build /app/build /usr/share/nginx/html
 
 # Copy the custom Nginx configuration file
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+##COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy and prepare the entrypoint script
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+#COPY entrypoint.sh /entrypoint.sh
+#UN chmod +x /entrypoint.sh
 
 # Expose port 80 for Nginx
 EXPOSE 80
 
 # Start Nginx when the container launches
 # CMD ["nginx", "-g", "daemon off;"]
-ENTRYPOINT ["/entrypoint.sh"]
+#ENTRYPOINT ["/entrypoint.sh"]
+CMD ["echo", "Minimal container started successfully! Sleeping..."; "sleep", "300"]
