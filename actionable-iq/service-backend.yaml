@@ -22,7 +22,6 @@ spec:
         env:
         - name: ASPNETCORE_ENVIRONMENT
           value: "Production"
-
         - name: MAILGUN_API_KEY
           valueSource:
             secretKeyRef:
