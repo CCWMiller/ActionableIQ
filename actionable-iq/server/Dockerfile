@@ -31,7 +31,7 @@ RUN dotnet publish "ActionableIQ.API.csproj" -c Release -o /app/publish --no-res
 
 # Stage 2: Serve the Application
 # Use the official ASP.NET runtime image, matching the SDK version used above.
-FROM mcr.microsoft.com/dotnet/aspnet:7.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 
 # Copy the published output from the build stage
