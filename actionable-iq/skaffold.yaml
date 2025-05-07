@@ -1,33 +1,37 @@
-# actionable-iq/skaffold.yaml
-apiVersion: skaffold/v4beta7
-kind: Config
-metadata:
-  name: actionable-iq-deployment
+    # actionable-iq/skaffold.yaml
+    apiVersion: skaffold/v4beta7
+    kind: Config
+    metadata:
+      name: actionable-iq-deployment
 
-build:
-  artifacts:
-    - image: frontend-image
-      context: client
-    - image: backend-image
-      context: server
-  googleCloudBuild:
-    projectId: $PROJECT_ID
+    build:
+      artifacts:
+        - image: frontend-image # Use simple key
+        - image: backend-image  # Use simple key
+      googleCloudBuild:
+        projectId: $PROJECT_ID
 
-deploy:
-  cloudrun: {}
-  # No global manifests needed if all are profile-specific
+    deploy:
+      cloudrun: {}
+      # NO global manifests section needed here
 
-profiles:
-  - name: staging
-    manifests:
-      rawYaml:
-        - service-frontend-staging.yaml # Specific to staging
-        - service-backend-staging.yaml  # Specific to staging
-    # No patches needed if values are set directly in these files
+    profiles:
+      - name: stagingFrontend # Specific name
+        manifests:
+          rawYaml:
+            - service-frontend-staging.yaml # ONLY frontend staging manifest
 
-  - name: production
-    manifests:
-      rawYaml:
-        - service-frontend-prod.yaml # Specific to prod
-        - service-backend-prod.yaml  # Specific to prod
-    # No patches needed
+      - name: stagingBackend # Specific name
+        manifests:
+          rawYaml:
+            - service-backend-staging.yaml  # ONLY backend staging manifest
+
+      - name: productionFrontend # Specific name
+        manifests:
+          rawYaml:
+            - service-frontend-prod.yaml # ONLY frontend prod manifest
+
+      - name: productionBackend # Specific name
+        manifests:
+          rawYaml:
+            - service-backend-prod.yaml  # ONLY backend prod manifest
