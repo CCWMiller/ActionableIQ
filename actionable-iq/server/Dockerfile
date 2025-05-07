@@ -1,6 +1,6 @@
 # Stage 1: Build and Publish the .NET Application
 # Use the official .NET SDK image. Adjust the version (e.g., 6.0, 8.0) if needed.
-FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /source
 
 # --- Copy project/solution files and restore dependencies ---
