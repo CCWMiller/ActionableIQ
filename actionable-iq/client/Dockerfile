@@ -31,6 +31,7 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy and prepare the entrypoint script
 COPY entrypoint.sh /entrypoint.sh
+RUN sed -i 's/\r$//' /entrypoint.sh # Ensure LF line endings
 RUN chmod +x /entrypoint.sh
 
 # Expose port 80 for Nginx
