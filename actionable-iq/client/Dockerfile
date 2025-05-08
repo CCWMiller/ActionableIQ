@@ -14,7 +14,7 @@ FROM alpine:latest
 # Optional: Install busybox-extras if httpd is not in the base image
 # Some minimal alpine images might not have httpd by default.
 # If the build fails finding /usr/sbin/httpd, uncomment the next line:
-# RUN apk add --no-cache busybox-extras
+RUN apk add --no-cache busybox-extras
 
 # Create a directory for the web server and a dummy index.html
 RUN mkdir -p /var/www/localhost/htdocs && \
