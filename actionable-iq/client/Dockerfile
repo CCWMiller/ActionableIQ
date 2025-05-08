@@ -1,46 +1,58 @@
-# Stage 1: Build the React app
-# Use an official Node runtime as a parent image
+# Stage 1: Build the React app (remains the same)
 FROM node:18-alpine as build
 WORKDIR /app
-
-# Copy package.json and package-lock.json (or yarn.lock)
 COPY package*.json ./
-# Install dependencies
 RUN npm install
-
-# Copy the rest of the client application code
 COPY . .
-
-# Set the API URL environment variable during build.
-# This can be overridden by Cloud Run settings or skaffold profiles if needed.
 ARG REACT_APP_API_URL=/api
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
-
-# Build the React application for production
 RUN npm run build
 
-# Stage 2: Serve static files with Nginx
-# Use an official Nginx runtime as a parent image
-FROM nginx:1.25-alpine
+# Stage 2: Minimal HTTP server with Node.js for debugging
+# We'll use node:18-alpine as the final stage directly for this test
+# to ensure Node.js is available. The original entrypoint.sh and nginx.conf
+# are not used in this specific debug Dockerfile.
+FROM node:18-alpine
 
-# Copy the production build output from the build stage
-COPY --from=build /app/build /usr/share/nginx/html
+WORKDIR /app
 
-# Copy the custom Nginx configuration file
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-# Copy and prepare the entrypoint script
-COPY entrypoint.sh /entrypoint.sh
-RUN sed -i 's/\r$//' /entrypoint.sh # Ensure LF line endings
-RUN chmod +x /entrypoint.sh
-
-# Expose port 80 for Nginx
+# EXPOSE 80 is important for Cloud Run to know which port to send requests to
+# and for the default TCP probe.
 EXPOSE 80
 
-# Start Nginx when the container launches
-# CMD ["nginx", "-g", "daemon off;"]
-# ENTRYPOINT ["/entrypoint.sh"]
-# CMD ["echo", "Minimal container started successfully! Sleeping..."; "sleep", "300"]
-
-# Temporary ENTRYPOINT for debugging - ensure NO probes are set in Cloud Run
-ENTRYPOINT ["/bin/sh", "-c", "echo 'ULTRA SIMPLE LOG TEST - CONTAINER ALIVE' && date && echo 'ULTRA SIMPLE LOG TEST - ENVIRONMENT START' && env && echo 'ULTRA SIMPLE LOG TEST - ENVIRONMENT END' && echo 'ULTRA SIMPLE LOG TEST - SLEEPING FOR 10 MINS' && sleep 600 && echo 'ULTRA SIMPLE LOG TEST - SLEEP DONE, EXITING'"]
+# ENTRYPOINT with a simple Node.js HTTP server and extensive logging
+ENTRYPOINT ["/bin/sh", "-c", " \
+    echo 'NODE HTTP SERVER DEBUG - CONTAINER PROCESS STARTED' && \
+    date && \
+    echo 'NODE HTTP SERVER DEBUG - ENVIRONMENT VARIABLES:' && \
+    env && \
+    echo 'NODE HTTP SERVER DEBUG - ATTEMPTING TO START NODE.JS HTTP SERVER ON PORT 80' && \
+    node -e \" \
+        const http = require('http'); \
+        const serverHostname = '0.0.0.0'; \
+        const serverPort = 80; \
+        \
+        console.log('NODE HTTP SERVER DEBUG - Node.js script executing.'); \
+        \
+        const requestListener = function (req, res) { \
+            console.log('NODE HTTP SERVER DEBUG - Received request:', req.method, req.url, 'Headers:', req.headers); \
+            res.writeHead(200, { 'Content-Type': 'text/plain' }); \
+            res.end('Hello from Cloud Run Debug Server!\\n'); \
+        }; \
+        \
+        const server = http.createServer(requestListener); \
+        \
+        server.on('error', (e) => { \
+            console.error('NODE HTTP SERVER DEBUG - Server error:', e); \
+            process.exit(1); \
+        }); \
+        \
+        server.listen(serverPort, serverHostname, () => { \
+            console.log('NODE HTTP SERVER DEBUG - Node.js server started and listening on port ' + serverPort); \
+        }); \
+        \
+        /* Keep Node running indefinitely (server.listen does this) */ \
+        /* Add a periodic log to show it's still alive if needed */ \
+        /* setInterval(() => { console.log('NODE HTTP SERVER DEBUG - Still alive...'); }, 60000); */ \
+    \" \
+"]
