@@ -32,4 +32,4 @@ spec:
           # Define resource limits (adjust as needed)
           limits:
             cpu: "1000m" # 1 vCPU
-            memory: "512Mi"
+            memory: "1Gi"
