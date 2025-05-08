@@ -1,40 +1,46 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
+  # Your labels like delivery-pipeline-id, location, managed-by, project-id, target-id are good.
+  # Skaffold/Cloud Deploy usually injects the release-id.
   labels:
     delivery-pipeline-id: actionable-iq-pipeline
     location: us-east5
     managed-by: google-cloud-deploy
     project-id: actionableiq
-    # release-id: rel-1037908 # Skaffold/Cloud Deploy might manage this
     target-id: frontend-staging
-  name: frontend-service
+  name: frontend-service # Ensure this is the correct name of your Cloud Run service
 spec:
   template:
     metadata:
-      # You can add annotations here if needed in the future
-      # annotations:
-      #   autoscaling.knative.dev/maxScale: "40" # Example from your previous full YAML
+      # labels:
+        # Add any specific labels for the revision template itself if needed
+        # run.googleapis.com/startupProbeType: Custom # This is usually set by Cloud Run based on probe presence
+      annotations:
+        autoscaling.knative.dev/maxScale: '40' # Keep if needed
     spec:
+      containerConcurrency: 80 # Keep if needed
+      timeoutSeconds: 300      # Keep if needed
+      serviceAccountName: 788583965739-compute@developer.gserviceaccount.com # Verify this SA
       containers:
-      - image: us-east5-docker.pkg.dev/actionableiq/frontend-repo/frontend-app # Let Skaffold/Cloud Build inject the tag/digest
+      - image: frontend-image # <<< SOLUTION FOR ISSUE A
         env:
         - name: REACT_APP_API_URL
-          value: https://placeholder.example.com/api # Correctly placed value
+          value: https://placeholder.example.com/api
         ports:
-        - containerPort: 80
-          name: http1
+        - name: http1 # Knative requires the port to be named
+          containerPort: 80
         resources:
           limits:
             cpu: 1000m
             memory: 1Gi
         startupProbe:
+          initialDelaySeconds: 15
+          timeoutSeconds: 5
+          periodSeconds: 10
+          failureThreshold: 24
           tcpSocket:
             port: 80
-          initialDelaySeconds: 15 # Optional: Give a few seconds for httpd to start
-          timeoutSeconds: 5
-          periodSeconds: 10 # How often to probe after initial success/failure
-          failureThreshold: 24 # How many failures before giving up
   traffic:
-  - latestRevision: true # Route traffic to the latest healthy revision
+  - latestRevision: true # <<< SOLUTION FOR ISSUE B
     percent: 100
