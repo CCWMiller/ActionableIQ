@@ -1,35 +1,40 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  # Name of the Cloud Run service for the frontend
+  labels:
+    delivery-pipeline-id: actionable-iq-pipeline
+    location: us-east5
+    managed-by: google-cloud-deploy
+    project-id: actionableiq
+    # release-id: rel-1037908 # Skaffold/Cloud Deploy might manage this
+    target-id: frontend-staging
   name: frontend-service
-  # Optional: Add annotations for things like ingress control or CPU allocation
-  # annotations:
-  #   run.googleapis.com/ingress: all # Allow public access
 spec:
   template:
     metadata:
-      # Optional: Annotations specific to the revision
+      # You can add annotations here if needed in the future
       # annotations:
-      #   autoscaling.knative.dev/maxScale: '5' # Example: Limit max instances
+      #   autoscaling.knative.dev/maxScale: "40" # Example from your previous full YAML
     spec:
-      # Set the service account the revision runs as (defaults to Compute Engine default SA)
-      # serviceAccountName: YOUR_PROJECT_NUMBER-compute@developer.gserviceaccount.com
       containers:
-        # The 'image' field will be automatically replaced by Skaffold/Cloud Deploy
-        # based on the '--images' flag passed to 'gcloud deploy releases create'
-      - image: frontend-image # Do not change this placeholder manually
-        ports:
-          # Port exposed by Nginx in the frontend Docker container
-        - containerPort: 80
-          name: http1
-        # Optional: Define environment variables for the frontend container
-        # Example: If you need to configure API URL at runtime instead of build time
+      - image: us-east5-docker.pkg.dev/actionableiq/frontend-repo/frontend-app # Let Skaffold/Cloud Build inject the tag/digest
         env:
         - name: REACT_APP_API_URL
-        value: "https://placeholder.example.com/api" # Will be patched by Skaffold profiles
+          value: https://placeholder.example.com/api # Correctly placed value
+        ports:
+        - containerPort: 80
+          name: http1
         resources:
-          # Define resource limits (adjust as needed)
           limits:
-            cpu: "1000m" # 1 vCPU
-            memory: "1Gi"
+            cpu: 1000m
+            memory: 1Gi
+        startupProbe:
+          tcpSocket:
+            port: 80
+          initialDelaySeconds: 5 # Optional: Give a few seconds for httpd to start
+          timeoutSeconds: 240
+          periodSeconds: 10 # How often to probe after initial success/failure
+          failureThreshold: 3 # How many failures before giving up
+  traffic:
+  - latestRevision: true # Route traffic to the latest healthy revision
+    percent: 100
