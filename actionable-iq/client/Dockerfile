@@ -42,5 +42,5 @@ EXPOSE 80
 # ENTRYPOINT ["/entrypoint.sh"]
 # CMD ["echo", "Minimal container started successfully! Sleeping..."; "sleep", "300"]
 
-# Temporary ENTRYPOINT for debugging
-ENTRYPOINT ["/bin/sh", "-c", "echo 'SIMPLE ENTRYPOINT TEST LOG - STARTING CONTAINER' && ls -la / && echo 'SIMPLE ENTRYPOINT TEST LOG - WAITING' && sleep 300 && echo 'SIMPLE ENTRYPOINT TEST LOG - SLEEP DONE'"]
+# Temporary ENTRYPOINT for debugging - ensure NO probes are set in Cloud Run
+ENTRYPOINT ["/bin/sh", "-c", "echo 'ULTRA SIMPLE LOG TEST - CONTAINER ALIVE' && date && echo 'ULTRA SIMPLE LOG TEST - ENVIRONMENT START' && env && echo 'ULTRA SIMPLE LOG TEST - ENVIRONMENT END' && echo 'ULTRA SIMPLE LOG TEST - SLEEPING FOR 10 MINS' && sleep 600 && echo 'ULTRA SIMPLE LOG TEST - SLEEP DONE, EXITING'"]
