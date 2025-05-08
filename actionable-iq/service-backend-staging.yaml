@@ -1,53 +1,53 @@
-apiVersion: serving.knative.dev/v1
-kind: Service
-metadata:
-  name: backend-service
-  labels:
-    # Add any labels you use for your Cloud Deploy target, e.g.:
-    # delivery-pipeline-id: actionable-iq-pipeline # If relevant
-    # target-id: backend-staging                  # If relevant
-  # annotations:
-  #   run.googleapis.com/ingress: internal-and-cloud-load-balancing # If you want to restrict access
-spec:
-  template:
+    apiVersion: serving.knative.dev/v1
+    kind: Service
     metadata:
-      # Optional: Revision-specific annotations
+      name: backend-service
+      labels:
+        # Add any labels you use for your Cloud Deploy target, e.g.:
+        # delivery-pipeline-id: actionable-iq-pipeline # If relevant
+        # target-id: backend-staging                  # If relevant
       # annotations:
-      #   autoscaling.knative.dev/maxScale: '10'
-    spec: # This 'spec:' is correct (it's for the Revision template)
-      # containerConcurrency: 80 # Optional: Default is 80
-      # timeoutSeconds: 300    # Optional: Default is 300
-      # serviceAccountName: YOUR_SERVICE_ACCOUNT # If needed, ensure this SA has access to the secrets
-      containers:
-      - image: backend-image # Skaffold will replace this
-        ports:
-        - name: http1 # Knative requires the port to be named if you define it
-          containerPort: 8080 # Port your .NET app listens on
-        env:
-          - name: ASPNETCORE_URLS
-            value: http://+:8080
-          - name: MAILGUN_API_KEY
-            valueSource:
-              secretKeyRef:
-                name: mailgun-api-key # Your Secret Manager secret name
-                version: latest       # Use 'latest' or a specific version
-          - name: ConnectionStrings__DefaultConnection # Key name expected by .NET Config
-            valueSource:
-              secretKeyRef:
-                name: actionableiq-db-connection-string # The name of your DB connection string secret
-                version: latest # Use 'latest' or a specific version
-          # Add other env vars your backend needs
-        resources:
-          limits:
-            cpu: 1000m
-            memory: 1Gi # Adjust as needed
-        startupProbe:
-          initialDelaySeconds: 10 # Adjust as needed for .NET app startup
-          timeoutSeconds: 5
-          periodSeconds: 10
-          failureThreshold: 24
-          tcpSocket:
-            port: 8080
-  traffic:
-  - latestRevision: true
-    percent: 100
+      #   run.googleapis.com/ingress: internal-and-cloud-load-balancing # If you want to restrict access
+    spec:
+      template:
+        metadata:
+          # Optional: Revision-specific annotations
+          # annotations:
+          #   autoscaling.knative.dev/maxScale: '10'
+        spec: # This 'spec:' is correct (it's for the Revision template)
+          # containerConcurrency: 80 # Optional: Default is 80
+          # timeoutSeconds: 300    # Optional: Default is 300
+          serviceAccountName: 788583965739-compute@developer.gserviceaccount.com # Explicitly set for consistency
+          containers:
+          - image: backend-image # Skaffold will replace this
+            ports:
+            - name: http1 # Knative requires the port to be named if you define it
+              containerPort: 8080 # Port your .NET app listens on
+            env:
+              - name: ASPNETCORE_URLS
+                value: http://+:8080
+              - name: MAILGUN_API_KEY
+                valueSource:
+                  secretKeyRef:
+                    name: mailgun-api-key # Your Secret Manager secret name
+                    version: latest       # Use 'latest' or a specific version
+              - name: ConnectionStrings__DefaultConnection # Key name expected by .NET Config
+                valueSource:
+                  secretKeyRef:
+                    name: actionableiq-db-connection-string # The name of your DB connection string secret
+                    version: latest # Use 'latest' or a specific version
+              # Add other env vars your backend needs
+            resources:
+              limits:
+                cpu: 1000m
+                memory: 1Gi # Adjust as needed
+            startupProbe:
+              initialDelaySeconds: 10 # Adjust as needed for .NET app startup
+              timeoutSeconds: 5
+              periodSeconds: 10
+              failureThreshold: 24
+              tcpSocket:
+                port: 8080
+      traffic:
+      - latestRevision: true
+        percent: 100
