@@ -1,37 +1,29 @@
-    # actionable-iq/skaffold.yaml
-    apiVersion: skaffold/v4beta7
-    kind: Config
-    metadata:
-      name: actionable-iq-deployment
-
-    build:
-      artifacts:
-        - image: frontend-image # Use simple key
-        - image: backend-image  # Use simple key
-      googleCloudBuild:
-        projectId: $PROJECT_ID
-
-    deploy:
-      cloudrun: {}
-      # NO global manifests section needed here
-
-    profiles:
-      - name: stagingFrontend # Specific name
-        manifests:
-          rawYaml:
-            - service-frontend-staging.yaml # ONLY frontend staging manifest
-
-      - name: stagingBackend # Specific name
-        manifests:
-          rawYaml:
-            - service-backend-staging.yaml  # ONLY backend staging manifest
-
-      - name: productionFrontend # Specific name
-        manifests:
-          rawYaml:
-            - service-frontend-prod.yaml # ONLY frontend prod manifest
-
-      - name: productionBackend # Specific name
-        manifests:
-          rawYaml:
-            - service-backend-prod.yaml  # ONLY backend prod manifest
+apiVersion: skaffold/v4beta12 # Or your current Skaffold version
+kind: Config
+metadata:
+  name: actionable-iq-pipeline-config # Renamed for clarity
+build:
+  artifacts:
+    - image: frontend-image
+      context: actionable-iq/client # Context specific to frontend
+      docker:
+        dockerfile: Dockerfile # This will be actionable-iq/client/Dockerfile
+    - image: backend-image
+      context: actionable-iq/server # Context specific to backend
+      docker:
+        dockerfile: Dockerfile # This will be actionable-iq/server/Dockerfile
+  tagPolicy:
+    gitCommit: {} # This tags images with the git commit SHA
+  googleCloudBuild:
+    projectId: actionableiq # Make sure this is your project ID
+    # Add other GCB settings if needed (e.g., machineType)
+manifests:
+  rawYaml:
+    - actionable-iq/service-frontend-staging.yaml # Path to your frontend service manifest
+    - actionable-iq/service-backend-staging.yaml # <<< ADD PATH TO YOUR BACKEND SERVICE MANIFEST
+deploy:
+  cloudrun: {} # Indicates deployment to Cloud Run, Skaffold will use gcloud commands
+  # Or if using kubectlDeploy for Knative manifests directly:
+  # kubectl: {}
+  logs:
+    prefix: container
