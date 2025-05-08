@@ -26,19 +26,19 @@ profiles:
   - name: stagingFrontend
     manifests:
       rawYaml:
-        - actionable-iq/service-frontend-staging.yaml # Path to your frontend STAGING service manifest
+        - actionable-iq/client/service-frontend-staging.yaml # Path to your frontend STAGING service manifest
   - name: stagingBackend
     manifests:
       rawYaml:
-        - actionable-iq/service-backend-staging.yaml     # Path to your backend STAGING service manifest
+        - actionable-iq/server/service-backend-staging.yaml     # Path to your backend STAGING service manifest
   - name: productionFrontend
     manifests:
       rawYaml:
-        - actionable-iq/service-frontend-prod.yaml # Path to your frontend PRODUCTION service manifest
+        - actionable-iq/client/service-frontend-prod.yaml # Path to your frontend PRODUCTION service manifest
   - name: productionBackend
     manifests:
       rawYaml:
-        - actionable-iq/service-backend-prod.yaml     # Path to your backend PRODUCTION service manifest
+        - actionable-iq/server/service-backend-prod.yaml     # Path to your backend PRODUCTION service manifest
 
 deploy:
   cloudrun: {} # Global deploy configuration, can be overridden in profiles if needed
