@@ -1,32 +1,30 @@
-# Stage 1: Build the React app (remains the same)
+# Stage 1: Build the React app
 FROM node:18-alpine as build
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
-ARG REACT_APP_API_URL=/api
+ARG REACT_APP_API_URL=/api # Ensure this is correctly used by your build process
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
 RUN npm run build
 
-# Stage 2: Minimal alpine with a simple HTTP server for health checks
+# Stage 2: Serve the React app with httpd on alpine
 FROM alpine:latest
 
-# Optional: Install busybox-extras if httpd is not in the base image
-# Some minimal alpine images might not have httpd by default.
-# If the build fails finding /usr/sbin/httpd, uncomment the next line:
+# Install httpd
 RUN apk add --no-cache busybox-extras
 
-# Create a directory for the web server and a dummy index.html
-RUN mkdir -p /var/www/localhost/htdocs && \
-    echo "<html><body><h1>Cloud Run Health Check</h1></body></html>" > /var/www/localhost/htdocs/index.html
+# Create the directory for httpd to serve files from
+# and copy the built React app from the 'build' stage
+WORKDIR /var/www/localhost/htdocs
+COPY --from=build /app/build .
 
-# Expose port 80 (documents that the container listens on this port)
+# Expose port 80
 EXPOSE 80
 
-# Start the httpd server. It will listen on port 80 by default.
+# Start httpd
 # -f: Run in foreground
-# -v: Verbose logging to stdout/stderr (useful for Cloud Run logs)
+# -v: Verbose logging (optional for production, but good for now)
 # -p 80: Listen on port 80
 # -h /var/www/localhost/htdocs: Serve files from this directory
-# We use 'exec' so httpd becomes PID 1, properly handling signals.
-CMD ["/bin/sh", "-c", "echo 'ALPINE MINIMAL TEST - Starting httpd at $(date)' > /dev/termination-log; echo 'ALPINE MINIMAL TEST - ENVIRONMENT VARS:' >> /dev/termination-log; env >> /dev/termination-log; exec /usr/sbin/httpd -f -v -p 80 -h /var/www/localhost/htdocs"]
+CMD ["/usr/sbin/httpd", "-f", "-v", "-p", "80", "-h", "/var/www/localhost/htdocs"]
