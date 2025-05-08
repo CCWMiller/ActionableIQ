@@ -1,37 +1,37 @@
-    apiVersion: serving.knative.dev/v1
-    kind: Service
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: frontend-service
+  # Optional: Add annotations for things like ingress control or CPU allocation
+  # annotations:
+  #   run.googleapis.com/ingress: all # Allow public access
+spec:
+  template:
     metadata:
-      name: frontend-service
-      # Optional: Add annotations for things like ingress control or CPU allocation
+      # Optional: Annotations specific to the revision
       # annotations:
-      #   run.googleapis.com/ingress: all # Allow public access
+      #   autoscaling.knative.dev/maxScale: '5' # Example: Limit max instances
     spec:
-      template:
-        metadata:
-          # Optional: Annotations specific to the revision
-          # annotations:
-          #   autoscaling.knative.dev/maxScale: '5' # Example: Limit max instances
-        spec:
-          serviceAccountName: 788583965739-compute@developer.gserviceaccount.com # Added for consistency
-          containers:
-          - image: frontend-image # Do not change this placeholder manually
-            ports:
-            - name: http1 # Knative requires the port to be named
-              containerPort: 80 # Port exposed by Nginx in the frontend Docker container
-            env:
-            - name: REACT_APP_API_URL
-              value: "https://placeholder.example.com/api" # Will be patched by Skaffold profiles
-            resources:
-              limits:
-                cpu: "1000m" # 1 vCPU
-                memory: "256Mi" # Adjusted from staging, assuming intentional
-            startupProbe: # Added from staging frontend
-              initialDelaySeconds: 15
-              timeoutSeconds: 5
-              periodSeconds: 10
-              failureThreshold: 24
-              tcpSocket:
-                port: 80
-      traffic: # Added from staging frontend
-      - latestRevision: true
-        percent: 100
+      serviceAccountName: 788583965739-compute@developer.gserviceaccount.com # Added for consistency
+      containers:
+      - image: frontend-image # Do not change this placeholder manually
+        ports:
+        - name: http1 # Knative requires the port to be named
+          containerPort: 80 # Port exposed by Nginx in the frontend Docker container
+        env:
+        - name: REACT_APP_API_URL
+          value: "https://placeholder.example.com/api" # Will be patched by Skaffold profiles
+        resources:
+          limits:
+            cpu: "1000m" # 1 vCPU
+            memory: "256Mi" # Adjusted from staging, assuming intentional
+        startupProbe: # Added from staging frontend
+          initialDelaySeconds: 15
+          timeoutSeconds: 5
+          periodSeconds: 10
+          failureThreshold: 24
+          tcpSocket:
+            port: 80
+  traffic: # Added from staging frontend
+  - latestRevision: true
+    percent: 100
