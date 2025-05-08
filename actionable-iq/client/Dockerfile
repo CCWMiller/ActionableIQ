@@ -22,9 +22,5 @@ COPY --from=build /app/build .
 # Expose port 80
 EXPOSE 80
 
-# Start httpd
-# -f: Run in foreground
-# -v: Verbose logging (optional for production, but good for now)
-# -p 80: Listen on port 80
-# -h /var/www/localhost/htdocs: Serve files from this directory
-CMD ["/usr/sbin/httpd", "-f", "-v", "-p", "80", "-h", "/var/www/localhost/htdocs"]
+# Modified CMD to list files for debugging, then start httpd
+CMD ["/bin/sh", "-c", "echo '---- Contents of /var/www/localhost/htdocs ----'; ls -lR /var/www/localhost/htdocs; echo '---- Starting httpd ----'; /usr/sbin/httpd -f -v -p 80 -h /var/www/localhost/htdocs"]
