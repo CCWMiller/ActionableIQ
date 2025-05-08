@@ -31,10 +31,10 @@ spec:
         startupProbe:
           tcpSocket:
             port: 80
-          initialDelaySeconds: 5 # Optional: Give a few seconds for httpd to start
-          timeoutSeconds: 240
+          initialDelaySeconds: 15 # Optional: Give a few seconds for httpd to start
+          timeoutSeconds: 5
           periodSeconds: 10 # How often to probe after initial success/failure
-          failureThreshold: 3 # How many failures before giving up
+          failureThreshold: 24 # How many failures before giving up
   traffic:
   - latestRevision: true # Route traffic to the latest healthy revision
     percent: 100
