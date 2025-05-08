@@ -6,7 +6,6 @@
         # Add any labels you use for your Cloud Deploy target, e.g.:
         # delivery-pipeline-id: actionable-iq-pipeline # If relevant
         # target-id: backend-staging                  # If relevant
-      # annotations:
       #   run.googleapis.com/ingress: internal-and-cloud-load-balancing # If you want to restrict access
     spec:
       template:

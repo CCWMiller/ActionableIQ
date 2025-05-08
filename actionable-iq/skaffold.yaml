@@ -26,7 +26,7 @@ profiles:
   - name: stagingFrontend
     manifests:
       rawYaml:
-        - actionable-iq/client/service-frontend-staging.yaml # Path to your frontend STAGING service manifest
+        - actionable-iq/service-frontend-staging.yaml # Path to your frontend STAGING service manifest
   - name: stagingBackend
     manifests:
       rawYaml:
@@ -34,7 +34,7 @@ profiles:
   - name: productionFrontend
     manifests:
       rawYaml:
-        - actionable-iq/client/service-frontend-prod.yaml # Path to your frontend PRODUCTION service manifest
+        - actionable-iq/service-frontend-prod.yaml # Path to your frontend PRODUCTION service manifest
   - name: productionBackend
     manifests:
       rawYaml:
