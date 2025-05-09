@@ -15,7 +15,7 @@ spec: # This is the spec for the Service resource
       # labels:
       #   version: v1.0.0 # Example
     spec: # This is the spec for the Revision template (container, ports, env, etc.)
-      serviceAccountName: 788583965739-compute@developer.gserviceaccount.com
+      serviceAccountName: backend-service-runner@actionableiq.iam.gserviceaccount.com
       containers:
       - image: backend-image # Skaffold will replace this
         # NO command or args override here - let the Dockerfile's ENTRYPOINT run
