@@ -1,20 +1,20 @@
-    # actionable-iq/delivery-pipeline.yaml
-    apiVersion: deploy.cloud.google.com/v1
-    kind: DeliveryPipeline
-    metadata:
-      name: actionable-iq-pipeline
-    description: Frontend and Backend deployment pipeline
-    serialPipeline:
-      stages:
-        - targetId: frontend-staging
-          profiles:
-            - stagingFrontend # Specific profile name
-        - targetId: backend-staging
-          profiles:
-            - stagingBackend  # Specific profile name
-        - targetId: frontend-prod
-          profiles:
-            - productionFrontend # Specific profile name
-        - targetId: backend-prod
-          profiles:
-            - productionBackend  # Specific profile name
+# actionable-iq/delivery-pipeline.yaml
+apiVersion: deploy.cloud.google.com/v1
+kind: DeliveryPipeline
+metadata:
+  name: actionable-iq-pipeline
+description: Frontend and Backend deployment pipeline
+serialPipeline:
+  stages:
+    - targetId: frontend-staging
+      profiles:
+        - stagingFrontend # Specific profile name
+    - targetId: backend-staging
+      profiles:
+        - stagingBackend  # Specific profile name
+    - targetId: frontend-prod
+      profiles:
+        - productionFrontend # Specific profile name
+    - targetId: backend-prod
+      profiles:
+        - productionBackend  # Specific profile name
