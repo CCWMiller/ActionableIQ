@@ -52,4 +52,4 @@ EXPOSE 8080
 # 2. Try to run dotnet --info to see if runtime is okay
 # 3. Attempt to run the application but keep container alive if it fails immediately
 #CMD ["/bin/sh", "-c", "echo '---- Contents of /app ----'; ls -lR /app; echo '---- dotnet --info ----'; dotnet --info; echo '---- Attempting to start application ----'; dotnet ActionableIQ.API.dll; echo '---- Script finished, container will exit unless app is running in foreground ----'; sleep 3600"]
-ENTRYPOINT ["/bin/ls", "-lR", "/app"]
+ENTRYPOINT ["/bin/sh", "-c", "echo 'Attempting to list /app'; ls -lR /app; echo 'Finished listing. Sleeping for 300 seconds to allow log capture.'; sleep 300; echo 'Sleep finished.'"]
