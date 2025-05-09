@@ -1,18 +1,12 @@
-apiVersion: serving.knative.dev/v1
-kind: Service
-metadata:
-  name: backend-service
-  labels:
-spec:
-  template:
-    metadata:
+    # ...
     spec:
       serviceAccountName: 788583965739-compute@developer.gserviceaccount.com
       containers:
-      - image: backend-image
-        ports:
-        - name: http1
-          containerPort: 8080
+      - image: backend-image # Skaffold will replace this
+        # NO command or args override here - let the Dockerfile's ENTRYPOINT run
+        ports: # UNCOMMENT
+        - name: http1 # UNCOMMENT
+          containerPort: 8080 # UNCOMMENT
         env:
           - name: ASPNETCORE_URLS
             value: http://+:8080
@@ -20,23 +14,21 @@ spec:
             valueFrom:
               secretKeyRef:
                 name: mailgun-api-key
-                key: latest # Corrected
+                key: latest
           - name: ConnectionStrings__DefaultConnection
             valueFrom:
               secretKeyRef:
                 name: actionableiq-db-connection-string
-                key: latest # Corrected
+                key: latest
         resources:
           limits:
             cpu: 1000m
             memory: 1Gi
-        startupProbe:
-          initialDelaySeconds: 60
+        startupProbe: # UNCOMMENT
+          initialDelaySeconds: 60 # Adjust if needed
           timeoutSeconds: 5
           periodSeconds: 15
           failureThreshold: 24
           tcpSocket:
-            port: 8080
-  traffic:
-  - latestRevision: true
-    percent: 100
+            port: 8080 # This must match the containerPort and what your app listens on
+    # ...
