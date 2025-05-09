@@ -2,6 +2,7 @@
 FROM alpine:latest
 ENTRYPOINT ["/bin/sh", "-c", "echo 'Hello from minimal Alpine container. Starting sleep for 300 seconds.'; date; sleep 300; date; echo 'Alpine container sleep finished.'"]
 
+
 # # Stage 1: Build and Publish the .NET Application
 # # Use the official .NET SDK image. Adjust the version (e.g., 6.0, 8.0) if needed.
 # FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
