@@ -1,46 +1,56 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  # Your labels like delivery-pipeline-id, location, managed-by, project-id, target-id are good.
-  # Skaffold/Cloud Deploy usually injects the release-id.
+  name: backend-service # Or backend-service-staging, ensure this matches your target
   labels:
-    delivery-pipeline-id: actionable-iq-pipeline
-    location: us-east5
-    managed-by: google-cloud-deploy
-    project-id: actionableiq
-    target-id: frontend-staging
-  name: frontend-service # Ensure this is the correct name of your Cloud Run service
+    # Add any relevant labels for your setup
+    # app: backend
+    # environment: staging
 spec:
   template:
     metadata:
-      # labels:
-        # Add any specific labels for the revision template itself if needed
-        # run.googleapis.com/startupProbeType: Custom # This is usually set by Cloud Run based on probe presence
-      annotations:
-        autoscaling.knative.dev/maxScale: '40' # Keep if needed
+      # Optional: Revision-specific annotations or labels
+      # annotations:
+      #   autoscaling.knative.dev/maxScale: '10'
     spec:
-      containerConcurrency: 80 # Keep if needed
-      timeoutSeconds: 300      # Keep if needed
-      serviceAccountName: 788583965739-compute@developer.gserviceaccount.com # Verify this SA
+      serviceAccountName: 788583965739-compute@developer.gserviceaccount.com
       containers:
-      - image: frontend-image # <<< SOLUTION FOR ISSUE A
-        env:
-        - name: REACT_APP_API_URL
-          value: https://placeholder.example.com/api
+      - image: backend-image # Skaffold will replace this
+        # NO command or args override here - let the Dockerfile's ENTRYPOINT from above run
         ports:
-        - name: http1 # Knative requires the port to be named
-          containerPort: 80
+        - name: http1
+          containerPort: 8080 # The diagnostic script doesn't listen, but probes expect this
+        env:
+          - name: ASPNETCORE_URLS # Still good to have for context if .NET part runs
+            value: "http://+:8080"
+          - name: ASPNETCORE_ENVIRONMENT
+            value: "Staging" # Or "Production" or "Development"
+          - name: MAILGUN_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: mailgun-api-key
+                key: latest
+          - name: ConnectionStrings__DefaultConnection
+            valueFrom:
+              secretKeyRef:
+                name: actionableiq-db-connection-string
+                key: latest
         resources:
           limits:
             cpu: 1000m
             memory: 1Gi
         startupProbe:
-          initialDelaySeconds: 15
+          # The diagnostic script won't satisfy a TCP probe on port 8080.
+          # The service will likely fail the probe eventually, but we hope to get logs *before* that.
+          # If this still yields no logs, for a subsequent test, we might comment out the probe
+          # to see if that allows the container to stay alive longer, purely for log capture.
+          # For now, keep it to see if any logs appear before probe failure.
+          initialDelaySeconds: 60
           timeoutSeconds: 5
-          periodSeconds: 10
-          failureThreshold: 24
+          periodSeconds: 15
+          failureThreshold: 24 # Gives ~6 minutes before probe fully fails
           tcpSocket:
-            port: 80
+            port: 8080
   traffic:
-  - latestRevision: true # <<< SOLUTION FOR ISSUE B
+  - latestRevision: true
     percent: 100
