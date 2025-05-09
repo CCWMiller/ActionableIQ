@@ -45,4 +45,10 @@ EXPOSE 8080
 # This runs your application's main DLL.
 # --- !!! IMPORTANT !!! ---
 # Replace 'YourProjectName.dll' with the actual name of your application's DLL file.
-ENTRYPOINT ["dotnet", "ActionableIQ.API.dll"]
+#ENTRYPOINT ["dotnet", "ActionableIQ.API.dll"]
+
+# TEMPORARY DEBUGGING ENTRYPOINT:
+# 1. List files in /app
+# 2. Try to run dotnet --info to see if runtime is okay
+# 3. Attempt to run the application but keep container alive if it fails immediately
+CMD ["/bin/sh", "-c", "echo '---- Contents of /app ----'; ls -lR /app; echo '---- dotnet --info ----'; dotnet --info; echo '---- Attempting to start application ----'; dotnet ActionableIQ.API.dll; echo '---- Script finished, container will exit unless app is running in foreground ----'; sleep 3600"]
