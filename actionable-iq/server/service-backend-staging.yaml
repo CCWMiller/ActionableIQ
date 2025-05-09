@@ -40,8 +40,8 @@ spec: # This is the spec for the Service resource
                 key: latest
         resources:
           limits:
-            cpu: 1000m # Adjust as needed for staging
-            memory: 1Gi # Adjust as needed for staging
+            cpu: 2000m # Adjust as needed for staging
+            memory: 4Gi # Adjust as needed for staging
         startupProbe:
           initialDelaySeconds: 90 # Adjust if needed
           timeoutSeconds: 5
