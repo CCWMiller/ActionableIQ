@@ -42,13 +42,13 @@ spec: # This is the spec for the Service resource
           limits:
             cpu: 1000m # Adjust as needed for staging
             memory: 1Gi # Adjust as needed for staging
-        startupProbe:
-          initialDelaySeconds: 60 # Adjust if needed
-          timeoutSeconds: 5
-          periodSeconds: 15
-          failureThreshold: 24
-          tcpSocket:
-            port: 8080 # This must match the containerPort and what your app listens on
+        # startupProbe:
+        #   initialDelaySeconds: 60 # Adjust if needed
+        #   timeoutSeconds: 5
+        #   periodSeconds: 15
+        #   failureThreshold: 24
+        #   tcpSocket:
+        #     port: 8080 # This must match the containerPort and what your app listens on
   traffic:
   - latestRevision: true
     percent: 100
