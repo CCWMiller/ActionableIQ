@@ -2,45 +2,40 @@ apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
   name: backend-service
-  # Optional: Annotations
-  #   run.googleapis.com/ingress: internal-and-cloud-load-balancing # Example: Allow only internal or LB traffic
 spec:
   template:
     metadata:
-      # Optional: Revision-specific annotations
-      # annotations:
-      #   autoscaling.knative.dev/maxScale: '10'
     spec:
       serviceAccountName: 788583965739-compute@developer.gserviceaccount.com
       containers:
-      - image: backend-image # Do not change this placeholder manually
+      - image: backend-image
         ports:
-        - name: http1 # Knative requires the port to be named
+        - name: http1
           containerPort: 8080
         env:
         - name: ASPNETCORE_ENVIRONMENT
           value: "Production"
         - name: MAILGUN_API_KEY
-          valueSource:
+          valueFrom:
             secretKeyRef:
-              name: mailgun-api-key         # Your Secret Manager secret name
-              version: latest               # Use 'latest' or a specific version number if needed
-        - name: ConnectionStrings__DefaultConnection # Key name expected by .NET Config
-          valueSource: # Changed from valueFrom for consistency with staging
+              name: mailgun-api-key
+              key: latest # Corrected
+        - name: ConnectionStrings__DefaultConnection
+          valueFrom:
             secretKeyRef:
-              name: actionableiq-db-connection-string # The name you gave the secret in Secret Manager
-              version: latest # Changed from key: latest for consistency
+              name: actionableiq-db-connection-string
+              key: latest # Corrected
         resources:
           limits:
             cpu: "2000m"
             memory: "1Gi"
-        startupProbe: # Added from staging backend
+        startupProbe:
           initialDelaySeconds: 10
           timeoutSeconds: 5
           periodSeconds: 10
           failureThreshold: 24
           tcpSocket:
             port: 8080
-  traffic: # Added from staging backend
+  traffic:
   - latestRevision: true
     percent: 100
