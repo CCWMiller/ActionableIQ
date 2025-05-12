@@ -23,7 +23,7 @@ msbuild.wrn
 *.userprefs
 
 # Credentials and sensitive information
-ActionableIQ.Api/appsettings.json
+ActionableIQ.Api/appsettings.development.json
 **/credentials/*.json
 **/credentials/*.p12
 **/credentials/*.pem

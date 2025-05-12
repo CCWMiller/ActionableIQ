@@ -34,8 +34,9 @@ builder.Configuration.Sources.Clear();
 Console.WriteLine("AIQ Log: Console - Setting up configuration sources.");
 builder.Configuration
     .SetBasePath(builder.Environment.ContentRootPath)
-    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-    .AddUserSecrets<Program>(optional: true); // User secrets are mainly for local dev. Ensure Cloud Run has necessary config via env vars or appsettings.json.
+    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true) // Loads appsettings.Development.json locally
+    .AddEnvironmentVariables(); // Highest precedence for this setup.
 Console.WriteLine("AIQ Log: Console - Configuration sources set.");
 
 // Log the configuration sources and environment
