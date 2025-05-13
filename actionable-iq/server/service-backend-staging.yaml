@@ -68,8 +68,6 @@ spec: # This is the spec for the Service resource
             value: "https://frontend-service-788583965739.us-east5.run.app"
           - name: GoogleAnalytics__ApplicationName
             value: "ActionableIQ Analytics"
-          - name: GoogleAnalytics__DefaultPropertyId
-            value: ""
           - name: GoogleAnalytics__MaxConcurrentRequests
             value: "5"
         resources:
