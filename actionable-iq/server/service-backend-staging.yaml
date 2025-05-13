@@ -28,16 +28,50 @@ spec: # This is the spec for the Service resource
           # It's good practice to also define ASPNETCORE_ENVIRONMENT for staging
           - name: ASPNETCORE_ENVIRONMENT
             value: "Staging" # Or "Development" if your app uses that for staging behavior
-          - name: MAILGUN_API_KEY
+          - name: Mailgun__ApiKey
             valueFrom:
               secretKeyRef:
                 name: mailgun-api-key
                 key: latest
+          - name: Mailgun__Domain
+            value: "sandboxb829c3eee5334b14a9b271fbb63ef620.mailgun.org"
+          - name: Mailgun__SenderEmail
+            value: "reports@sandboxb829c3eee5334b14a9b271fbb63ef620.mailgun.org"
+          - name: Mailgun__SenderName
+            value: "ActionableIQ Analytics"
           - name: ConnectionStrings__DefaultConnection
             valueFrom:
               secretKeyRef:
                 name: actionableiq-db-connection-string
                 key: latest
+          - name: JwtSettings__Secret
+            valueFrom:
+              secretKeyRef:
+                name: jwt-secret
+                key: latest
+          - name: JwtSettings__TokenExpiryMinutes
+            value: "60"
+          - name: JwtSettings__RefreshTokenExpiryDays
+            value: "7"
+          - name: JwtSettings__Issuer
+            value: "actionableiq"
+          - name: JwtSettings__Audience
+            value: "actionableiq-api"
+          - name: Authentication__Google__ClientId
+            value: "788583965739-jdtuifdn617lsh59mtg5775c4v0ms110.apps.googleusercontent.com"
+          - name: Authentication__Google__ClientSecret
+            valueFrom:
+              secretKeyRef:
+                name: google-client-secret
+                key: latest
+          - name: Authentication__Google__RedirectUri
+            value: "https://frontend-service-788583965739.us-east5.run.app"
+          - name: GoogleAnalytics__ApplicationName
+            value: "ActionableIQ Analytics"
+          - name: GoogleAnalytics__DefaultPropertyId
+            value: ""
+          - name: GoogleAnalytics__MaxConcurrentRequests
+            value: "5"
         resources:
           limits:
             cpu: 2000m # Adjust as needed for staging
