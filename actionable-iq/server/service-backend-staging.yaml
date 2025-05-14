@@ -6,6 +6,11 @@ metadata:
     # Add any labels consistent with your setup, for example:
     # app: backend
     # environment: staging
+    delivery-pipeline-id: actionable-iq-pipeline
+    location: us-east5
+    managed-by: google-cloud-deploy
+    project-id: actionableiq
+    target-id: backend-staging
 spec: # This is the spec for the Service resource
   template: # This defines the template for new Revisions
     metadata:
