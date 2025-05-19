@@ -60,7 +60,10 @@ spec:
         - name: Mailgun__ApiKey
           value: "dummy-mailgun-api-key"
         - name: ConnectionStrings__DefaultConnection
-          value: "dummy-db-connection-string" # App will likely fail later if it tries to use this
+        valueFrom:
+          secretKeyRef:
+            name: actionableiq-db-connection-string
+            key: latest
         - name: Authentication__Google__ClientSecret
           value: "dummy-google-client-secret"
 
