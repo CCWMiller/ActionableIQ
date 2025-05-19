@@ -30,7 +30,7 @@ steps:
 
 # Add a delay
 - name: 'alpine' # A small image that has 'sleep'
-  args: ['sleep', '30'] # Sleep for 30 seconds
+  args: ['sleep', '60'] # Sleep for 60 seconds
   id: 'Wait for Image Replication'
 
 # Create Cloud Deploy Release
