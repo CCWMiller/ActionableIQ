@@ -58,7 +58,10 @@ spec:
         # --- Temporarily provide dummy values for secret-backed env vars if they are read directly as strings ---
         # This is ONLY to get past startup null checks. We'll replace with secretKeyRef later.
         - name: Mailgun__ApiKey
-          value: "dummy-mailgun-api-key"
+          valueFrom:
+            secretKeyRef:
+              name: mailgun-api-key
+              key: latest
         - name: ConnectionStrings__DefaultConnection
           valueFrom:
             secretKeyRef:
