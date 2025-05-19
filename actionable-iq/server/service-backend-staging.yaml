@@ -2,7 +2,7 @@ apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
   name: backend-service
-  labels:
+  labels: # Keep your Cloud Deploy labels (these are important for Cloud Deploy to manage the service)
     delivery-pipeline-id: actionable-iq-pipeline
     location: us-east5
     managed-by: google-cloud-deploy
@@ -10,79 +10,31 @@ metadata:
     target-id: backend-staging
 spec:
   template:
-    metadata:
-      # annotations:
-      #   autoscaling.knative.dev/maxScale: '10'
-      # labels:
-      #   version: v1.0.0
     spec:
-      serviceAccountName: backend-service-runner@actionableiq.iam.gserviceaccount.com
+      serviceAccountName: backend-service-runner@actionableiq.iam.gserviceaccount.com # Use your runtime Service Account
       containers:
-      - image: backend-image # Skaffold will replace this
+      - image: backend-image # Skaffold will replace this via the --images flag from your cloudbuild.yaml
         ports:
-        - name: http1
-          containerPort: 8080
+        - name: http1 # Knative requires the port to be named (usually http1 or h2c)
+          containerPort: 8080 # The port your application listens on
         env:
-          # --- Plain Text Environment Variables ---
-          - name: ASPNETCORE_URLS
-            value: "http://+:8080"
-          - name: ASPNETCORE_ENVIRONMENT
-            value: "Staging"
-          - name: Mailgun__Domain
-            value: "sandboxb829c3eee5334b14a9b271fbb63ef620.mailgun.org"
-          - name: Mailgun__SenderEmail
-            value: "reports@sandboxb829c3eee5334b14a9b271fbb63ef620.mailgun.org"
-          - name: Mailgun__SenderName
-            value: "ActionableIQ Analytics"
-          - name: JwtSettings__TokenExpiryMinutes
-            value: "60"
-          - name: JwtSettings__RefreshTokenExpiryDays
-            value: "7"
-          - name: JwtSettings__Issuer
-            value: "actionableiq"
-          - name: JwtSettings__Audience
-            value: "actionableiq-api"
-          - name: Authentication__Google__ClientId
-            value: "788583965739-jdtuifdn617lsh59mtg5775c4v0ms110.apps.googleusercontent.com"
-          - name: Authentication__Google__RedirectUri
-            value: "https://frontend-service-788583965739.us-east5.run.app" # Make sure this is the correct Staging Redirect URI
-          - name: GoogleAnalytics__ApplicationName
-            value: "ActionableIQ Analytics"
-          - name: GoogleAnalytics__MaxConcurrentRequests
-            value: "5"
-
-          # --- Secret-Backed Environment Variables ---
-          - name: Mailgun__ApiKey
-            valueFrom:
-              secretKeyRef:
-                name: mailgun-api-key
-                key: latest
-          - name: ConnectionStrings__DefaultConnection
-            valueFrom:
-              secretKeyRef:
-                name: actionableiq-db-connection-string
-                key: latest
-          - name: JwtSettings__Secret
-            valueFrom:
-              secretKeyRef:
-                name: jwt-secret
-                key: latest
-          - name: Authentication__Google__ClientSecret
-            valueFrom:
-              secretKeyRef:
-                name: google-client-secret
-                key: latest
-        resources:
+        # Only the most basic environment variables needed for an ASP.NET Core app to start
+        # without immediately crashing due to missing fundamental configuration.
+        # Your app might not be "functional" but the Cloud Run revision should be created.
+        - name: ASPNETCORE_URLS
+          value: "http://+:8080"
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "MinimalTest" # Or "Staging", but "MinimalTest" makes it clear this is a specific test config
+        #
+        # NO other application-specific environment variables (e.g., Mailgun, JWT, Database, Google Auth)
+        # NO valueFrom secretKeyRef sections
+        #
+        # NO startupProbe for this test (to remove another variable and rely on Cloud Run's default checks)
+        #
+        resources: # You can keep or remove/comment out resources for this test; keeping them is fine.
           limits:
             cpu: 2000m
             memory: 4Gi
-        startupProbe: # I've kept your original startup probe here
-          initialDelaySeconds: 90
-          timeoutSeconds: 5
-          periodSeconds: 15
-          failureThreshold: 10
-          tcpSocket:
-            port: 8080
   traffic:
   - latestRevision: true
     percent: 100
