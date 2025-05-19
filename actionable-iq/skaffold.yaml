@@ -2,20 +2,20 @@ apiVersion: skaffold/v4beta12
 kind: Config
 metadata:
   name: actionable-iq-pipeline-config
-build:
-  artifacts:
-    - image: frontend-image
-      context: actionable-iq/client
-      docker:
-        dockerfile: Dockerfile
-    - image: backend-image
-      context: actionable-iq/server
-      docker:
-        dockerfile: Dockerfile
-  tagPolicy:
-    gitCommit: {}
-  googleCloudBuild:
-    projectId: actionableiq
+# build:
+#   artifacts:
+#     - image: frontend-image
+#       context: actionable-iq/client
+#       docker:
+#         dockerfile: Dockerfile
+#     - image: backend-image
+#       context: actionable-iq/server
+#       docker:
+#         dockerfile: Dockerfile
+#   tagPolicy:
+#     gitCommit: {}
+#   googleCloudBuild:
+#     projectId: actionableiq
 
 # --- DEFAULT MANIFESTS (can be empty if all are profile-specific) ---
 manifests:
