@@ -68,7 +68,10 @@ spec:
               name: actionableiq-db-connection-string
               key: latest
         - name: Authentication__Google__ClientSecret
-          value: "dummy-google-client-secret"
+          valueFrom:
+            secretKeyRef:
+              name: google-client-secret
+              key: latest
 
         # NO valueFrom: secretKeyRef yet
         # NO startupProbe yet
