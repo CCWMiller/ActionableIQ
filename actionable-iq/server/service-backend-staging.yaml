@@ -29,8 +29,11 @@ spec:
           value: "actionableiq" # From your full config
         - name: JwtSettings__Audience
           value: "actionableiq-api" # From your full config
-        - name: JwtSettings__Secret # TEMPORARY DUMMY VALUE
-          value: "dummy-secret-value-that-is-not-null-and-long-enough" # Must not be null
+        - name: JwtSettings__Secret
+          valueFrom:
+            secretKeyRef:
+              name: jwt-secret
+              key: latest
 
         # Add back other plain text vars that were in your full config
         - name: Mailgun__Domain
