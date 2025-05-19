@@ -28,6 +28,11 @@ steps:
   args: ['push', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/backend-repo/backend-app:$COMMIT_SHA']
   id: 'Push Backend'
 
+# Add a delay
+- name: 'alpine' # A small image that has 'sleep'
+  args: ['sleep', '30'] # Sleep for 30 seconds
+  id: 'Wait for Image Replication'
+
 # Create Cloud Deploy Release
 # This step uses the gcloud image which has necessary tools installed.
 - name: 'google/cloud-sdk:latest'
