@@ -13,8 +13,14 @@ spec:
         - name: http1
           containerPort: 8080
         env:
+        - name: ASPNETCORE_URLS
+          value: "http://+:8080"
         - name: ASPNETCORE_ENVIRONMENT
           value: "Production"
+        - name: Mailgun__Domain
+          value: "sandboxb829c3eee5334b14a9b271fbb63ef620.mailgun.org"
+        - name: GoogleAnalytics__MaxConcurrentRequests
+          value: "5"
         - name: MAILGUN_API_KEY
           valueFrom:
             secretKeyRef:
@@ -25,6 +31,16 @@ spec:
             secretKeyRef:
               name: actionableiq-db-connection-string
               key: latest # Corrected
+        - name: JwtSettings__Secret
+          valueFrom:
+            secretKeyRef:
+              name: jwt-secret
+              key: latest
+        - name: Authentication__Google__ClientSecret
+          valueFrom:
+            secretKeyRef:
+              name: google-client-secret
+              key: latest
         resources:
           limits:
             cpu: "2000m"

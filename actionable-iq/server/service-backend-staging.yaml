@@ -1,59 +1,39 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: backend-service # Or backend-service-staging, ensure this name is correct for your staging service
+  name: backend-service
   labels:
-    # Add any labels consistent with your setup, for example:
-    # app: backend
-    # environment: staging
     delivery-pipeline-id: actionable-iq-pipeline
     location: us-east5
     managed-by: google-cloud-deploy
     project-id: actionableiq
     target-id: backend-staging
-spec: # This is the spec for the Service resource
-  template: # This defines the template for new Revisions
+spec:
+  template:
     metadata:
-      # Optional: Revision-specific annotations or labels can go here
       # annotations:
-      #   autoscaling.knative.dev/maxScale: '10' # Example
+      #   autoscaling.knative.dev/maxScale: '10'
       # labels:
-      #   version: v1.0.0 # Example
-    spec: # This is the spec for the Revision template (container, ports, env, etc.)
+      #   version: v1.0.0
+    spec:
       serviceAccountName: backend-service-runner@actionableiq.iam.gserviceaccount.com
       containers:
       - image: backend-image # Skaffold will replace this
-        # NO command or args override here - let the Dockerfile's ENTRYPOINT run
         ports:
         - name: http1
           containerPort: 8080
         env:
-          - name: ASPNETCORE_URLS # This will be used/overridden by PORT from Cloud Run + Program.cs
-            value: "http://+:8080" # Keep for clarity or local Kestrel behavior if PORT isn't set
-          # It's good practice to also define ASPNETCORE_ENVIRONMENT for staging
+          # --- Plain Text Environment Variables ---
+          - name: ASPNETCORE_URLS
+            value: "http://+:8080"
           - name: ASPNETCORE_ENVIRONMENT
-            value: "Staging" # Or "Development" if your app uses that for staging behavior
-          - name: Mailgun__ApiKey
-            valueFrom:
-              secretKeyRef:
-                name: mailgun-api-key
-                key: latest
+            value: "Staging"
           - name: Mailgun__Domain
             value: "sandboxb829c3eee5334b14a9b271fbb63ef620.mailgun.org"
           - name: Mailgun__SenderEmail
             value: "reports@sandboxb829c3eee5334b14a9b271fbb63ef620.mailgun.org"
           - name: Mailgun__SenderName
             value: "ActionableIQ Analytics"
-          - name: ConnectionStrings__DefaultConnection
-            valueFrom:
-              secretKeyRef:
-                name: actionableiq-db-connection-string
-                key: latest
-          - name: JwtSettings__Secret
-            valueFrom:
-              secretKeyRef:
-                name: jwt-secret
-                key: latest
           - name: JwtSettings__TokenExpiryMinutes
             value: "60"
           - name: JwtSettings__RefreshTokenExpiryDays
@@ -64,28 +44,45 @@ spec: # This is the spec for the Service resource
             value: "actionableiq-api"
           - name: Authentication__Google__ClientId
             value: "788583965739-jdtuifdn617lsh59mtg5775c4v0ms110.apps.googleusercontent.com"
+          - name: Authentication__Google__RedirectUri
+            value: "https://frontend-service-788583965739.us-east5.run.app" # Make sure this is the correct Staging Redirect URI
+          - name: GoogleAnalytics__ApplicationName
+            value: "ActionableIQ Analytics"
+          - name: GoogleAnalytics__MaxConcurrentRequests
+            value: "5"
+
+          # --- Secret-Backed Environment Variables ---
+          - name: Mailgun__ApiKey
+            valueFrom:
+              secretKeyRef:
+                name: mailgun-api-key
+                key: latest
+          - name: ConnectionStrings__DefaultConnection
+            valueFrom:
+              secretKeyRef:
+                name: actionableiq-db-connection-string
+                key: latest
+          - name: JwtSettings__Secret
+            valueFrom:
+              secretKeyRef:
+                name: jwt-secret
+                key: latest
           - name: Authentication__Google__ClientSecret
             valueFrom:
               secretKeyRef:
                 name: google-client-secret
                 key: latest
-          - name: Authentication__Google__RedirectUri
-            value: "https://frontend-service-788583965739.us-east5.run.app"
-          - name: GoogleAnalytics__ApplicationName
-            value: "ActionableIQ Analytics"
-          - name: GoogleAnalytics__MaxConcurrentRequests
-            value: "5"
         resources:
           limits:
-            cpu: 2000m # Adjust as needed for staging
-            memory: 4Gi # Adjust as needed for staging
-        # startupProbe:
-        #   initialDelaySeconds: 90 # Adjust if needed
-        #   timeoutSeconds: 5
-        #   periodSeconds: 15
-        #   failureThreshold: 10
-        #   tcpSocket:
-        #     port: 8080 # This must match the containerPort and what your app listens on
+            cpu: 2000m
+            memory: 4Gi
+        startupProbe: # I've kept your original startup probe here
+          initialDelaySeconds: 90
+          timeoutSeconds: 5
+          periodSeconds: 15
+          failureThreshold: 10
+          tcpSocket:
+            port: 8080
   traffic:
   - latestRevision: true
     percent: 100
