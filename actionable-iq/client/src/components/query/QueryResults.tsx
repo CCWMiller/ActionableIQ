@@ -7,6 +7,7 @@ import { selectProperties, selectActiveQuery } from '../../store/slices/analytic
 import { AnalyticsProperty, AnalyticsMultiQueryResponse, AnalyticsQueryResponse } from '../../types/analytics.types';
 // import ReportResults from '../report/ReportResults'; // Commented out for now
 import EmailReportModal from '../common/EmailReportModal';
+import { apiClient } from '../../services/api/apiClient';
 
 interface QueryResultsProps {
   results: AnalyticsMultiQueryResponse | null; // Updated prop type
@@ -344,49 +345,60 @@ const QueryResults: React.FC<QueryResultsProps> = ({
 
       // Use the dedicated email endpoint
       console.log("[handleSendEmails] Preparing to send email"); // Use console.log
-      const endpointUrl = '/api/report/email'; // Changed to relative path
-      const requestOptions = {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(emailRequestPayload) // Send the correct payload
-      };
+      //const endpointUrl = '/api/report/email'; // Changed to relative path
+      // const requestOptions = {
+      //   method: 'POST',
+      //   headers: {
+      //     'Authorization': `Bearer ${token}`,
+      //     'Content-Type': 'application/json',
+      //   },
+      //   body: JSON.stringify(emailRequestPayload) // Send the correct payload
+      // };
 
-      // Avoid logging the full Authorization header in production
-      console.log('[handleSendEmails] Fetch Headers:', { 
-          'Content-Type': requestOptions.headers['Content-Type'],
-          'Authorization': requestOptions.headers.Authorization ? 'Bearer PRESENT' : 'Bearer MISSING' 
-      });
-      console.log('[handleSendEmails] Fetch Body:', requestOptions.body);
+      // // Avoid logging the full Authorization header in production
+      // console.log('[handleSendEmails] Fetch Headers:', { 
+      //     'Content-Type': requestOptions.headers['Content-Type'],
+      //     'Authorization': requestOptions.headers.Authorization ? 'Bearer PRESENT' : 'Bearer MISSING' 
+      // });
+      // console.log('[handleSendEmails] Fetch Body:', requestOptions.body);
 
-      const response = await fetch(endpointUrl, requestOptions);
+      //const response = await fetch(endpointUrl, requestOptions);
       
-      console.log(`[handleSendEmails] Response Status: ${response.status}`);
-      console.log(`[handleSendEmails] Response Status Text: ${response.statusText}`);
+      //console.log(`[handleSendEmails] Response Status: ${response.status}`);
+      //console.log(`[handleSendEmails] Response Status Text: ${response.statusText}`);
 
-      if (!response.ok) {
-        let errorData = { message: `Request failed with status ${response.status}` };
-        try {
-           // Try to parse backend error message if available
-           errorData = await response.json();
-           console.error('[handleSendEmails] Received error response body:', errorData);
-        } catch (parseError) {
-           console.error('[handleSendEmails] Could not parse error response body. Status text:', response.statusText);
-        }
-        throw new Error(errorData.message || 'Failed to send email');
-      }
+      // if (!response.ok) {
+      //   let errorData = { message: `Request failed with status ${response.status}` };
+      //   try {
+      //      // Try to parse backend error message if available
+      //      errorData = await response.json();
+      //      console.error('[handleSendEmails] Received error response body:', errorData);
+      //   } catch (parseError) {
+      //      console.error('[handleSendEmails] Could not parse error response body. Status text:', response.statusText);
+      //   }
+      //   throw new Error(errorData.message || 'Failed to send email');
+      // }
       
       // Log success response data if needed
-       try {
-           const responseData = await response.json();
-           console.log('[handleSendEmails] Received success response body:', responseData);
-           return responseData; // Return the parsed success response
-       } catch (parseError) {
-           console.log('[handleSendEmails] Could not parse success response body, assuming success based on status code.');
-           return { success: true, message: 'Email sent successfully (no JSON body)' }; // Indicate success
-       }
+      //  try {
+      //      const responseData = await response.json();
+      //      console.log('[handleSendEmails] Received success response body:', responseData);
+      //      return responseData; // Return the parsed success response
+      //  } catch (parseError) {
+      //      console.log('[handleSendEmails] Could not parse success response body, assuming success based on status code.');
+      //      return { success: true, message: 'Email sent successfully (no JSON body)' }; // Indicate success
+      //  }
+      console.log("[handleSendEmails] Preparing to send email via apiClient");
+          
+      // Use apiClient.post for the request
+      // The apiClient will prepend the API_URL from environment variables (or localhost default)
+      // It also handles setting the Content-Type and Authorization header with the token
+      const responseData = await apiClient.post<any>('/report/email', emailRequestPayload, { token });
+
+      // apiClient.post will throw an error if the response is not ok (e.g., 4xx, 5xx status)
+      // So, if we reach here, the request was successful.
+      console.log('[handleSendEmails] Received success response body from apiClient:', responseData);
+      return responseData;
 
     } catch (error) {
       console.error('[handleSendEmails] Error caught in catch block:', error);
