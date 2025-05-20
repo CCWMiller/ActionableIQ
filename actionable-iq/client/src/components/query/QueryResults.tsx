@@ -344,7 +344,7 @@ const QueryResults: React.FC<QueryResultsProps> = ({
 
       // Use the dedicated email endpoint
       console.log("[handleSendEmails] Preparing to send email"); // Use console.log
-      const endpointUrl = 'http://localhost:5190/api/report/email';
+      const endpointUrl = '/api/report/email'; // Changed to relative path
       const requestOptions = {
         method: 'POST',
         headers: {
