@@ -2,56 +2,83 @@ apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
   name: backend-service
+  labels: # Keep your Cloud Deploy labels (these are important for Cloud Deploy to manage the service)
+    delivery-pipeline-id: actionable-iq-pipeline
+    location: us-east5
+    managed-by: google-cloud-deploy
+    project-id: actionableiq
+    target-id: backend-prod
 spec:
   template:
-    metadata:
     spec:
-      serviceAccountName: 788583965739-compute@developer.gserviceaccount.com
+      serviceAccountName: backend-service-runner@actionableiq.iam.gserviceaccount.com # Use your runtime Service Account
       containers:
-      - image: backend-image
+      - image: backend-image # Skaffold will replace this via the --images flag from your cloudbuild.yaml
         ports:
-        - name: http1
-          containerPort: 8080
+        - name: http1 # Knative requires the port to be named (usually http1 or h2c)
+          containerPort: 8080 # The port your application listens on
         env:
         - name: ASPNETCORE_URLS
           value: "http://+:8080"
         - name: ASPNETCORE_ENVIRONMENT
-          value: "Production"
-        - name: Mailgun__Domain
-          value: "sandboxb829c3eee5334b14a9b271fbb63ef620.mailgun.org"
-        - name: GoogleAnalytics__MaxConcurrentRequests
-          value: "5"
-        - name: MAILGUN_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: mailgun-api-key
-              key: latest # Corrected
-        - name: ConnectionStrings__DefaultConnection
-          valueFrom:
-            secretKeyRef:
-              name: actionableiq-db-connection-string
-              key: latest # Corrected
+          value: "Production" # Or "MinimalWithJwtPlainText" to be clear for this test
+
+        # Add back PLAIN TEXT JWT settings (and others that might cause null refs early)
+        # For actual secrets, use dummy values FOR THIS TEST ONLY if null causes immediate crash
+        - name: JwtSettings__Issuer
+          value: "actionableiq" # From your full config
+        - name: JwtSettings__Audience
+          value: "actionableiq-api" # From your full config
         - name: JwtSettings__Secret
           valueFrom:
             secretKeyRef:
               name: jwt-secret
+              key: latest
+
+        # Add back other plain text vars that were in your full config
+        - name: Mailgun__Domain
+          value: "sandboxb829c3eee5334b14a9b271fbb63ef620.mailgun.org"
+        - name: Mailgun__SenderEmail
+          value: "reports@sandboxb829c3eee5334b14a9b271fbb63ef620.mailgun.org"
+        - name: Mailgun__SenderName
+          value: "ActionableIQ Analytics"
+        - name: JwtSettings__TokenExpiryMinutes # This was plain text
+          value: "60"
+        - name: JwtSettings__RefreshTokenExpiryDays # This was plain text
+          value: "7"
+        - name: Authentication__Google__ClientId
+          value: "788583965739-jdtuifdn617lsh59mtg5775c4v0ms110.apps.googleusercontent.com"
+        - name: Authentication__Google__RedirectUri
+          value: "https://frontend-service-788583965739.us-east5.run.app"
+        - name: GoogleAnalytics__ApplicationName
+          value: "ActionableIQ Analytics"
+        - name: GoogleAnalytics__MaxConcurrentRequests
+          value: "5"
+
+        # --- Temporarily provide dummy values for secret-backed env vars if they are read directly as strings ---
+        # This is ONLY to get past startup null checks. We'll replace with secretKeyRef later.
+        - name: Mailgun__ApiKey
+          valueFrom:
+            secretKeyRef:
+              name: mailgun-api-key
+              key: latest
+        - name: ConnectionStrings__DefaultConnection
+          valueFrom:
+            secretKeyRef:
+              name: actionableiq-db-connection-string
               key: latest
         - name: Authentication__Google__ClientSecret
           valueFrom:
             secretKeyRef:
               name: google-client-secret
               key: latest
-        resources:
+
+        # NO valueFrom: secretKeyRef yet
+        # NO startupProbe yet
+        resources: # You can keep or remove/comment out resources for this test; keeping them is fine.
           limits:
-            cpu: "2000m"
-            memory: "1Gi"
-        startupProbe:
-          initialDelaySeconds: 10
-          timeoutSeconds: 5
-          periodSeconds: 10
-          failureThreshold: 24
-          tcpSocket:
-            port: 8080
+            cpu: 2000m
+            memory: 4Gi
   traffic:
   - latestRevision: true
     percent: 100
