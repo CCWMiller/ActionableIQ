@@ -14,7 +14,7 @@ metadata:
 spec:
   template:
     metadata: # <--- METADATA FOR THE REVISION TEMPLATE
-      name: backend-prod-rev-v2 # Optional: Revision name hint (ensure this is unique too)
+      name: backend-service-prod-rev-v3 # Optional: Revision name hint (ensure this is unique too)
       annotations:
         # Cloud Run specific autoscaling for the REVISION
         run.googleapis.com/max-instances: "20" # Preferred Cloud Run way for revision max scaling
