@@ -26,7 +26,7 @@ spec:
       - image: frontend-image # <<< SOLUTION FOR ISSUE A
         env:
         - name: REACT_APP_API_URL
-          value: https://backend-service-788583965739.us-east5.run.app/api
+            value: https://backend-service-788583965739.us-east5.run.app/api
         - name: REACT_APP_GOOGLE_CLIENT_ID
             value: "788583965739-jdtuifdn617lsh59mtg5775c4v0ms110.apps.googleusercontent.com"
         ports:
