@@ -4,7 +4,8 @@ steps:
   args: [
     'build',
     '-t', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/frontend-repo/frontend-app:$COMMIT_SHA',
-    '--build-arg', 'REACT_APP_API_URL=${_API_URL}', # Define _API_URL substitution if needed
+    '--build-arg', 'REACT_APP_API_URL=${_API_URL}',
+    '--build-arg', 'REACT_APP_GOOGLE_CLIENT_ID=788583965739-jdtuifdn617lsh59mtg5775c4v0ms110.apps.googleusercontent.com', # Define _API_URL substitution if needed
     'actionable-iq/client'
   ]
   id: 'Build Frontend'
