@@ -29,9 +29,9 @@ export const authApi = {
   /**
    * Validate a Google ID token with the backend
    */
-  validateGoogleToken: (accessToken: string) => 
+  validateGoogleToken: (code: string) => 
     apiClient.post<GoogleAuthResponse>('/auth/google', {
-      AccessToken: accessToken
+      Code: code
     }),
   
   /**

@@ -11,11 +11,11 @@ namespace ActionableIQ.Core.Interfaces
         /// <summary>
         /// Validate a Google ID token
         /// </summary>
-        Task<GoogleUserInfo> ValidateGoogleTokenAsync(string accessToken);
+        Task<GoogleUserInfo> ValidateGoogleTokenAsync(string code);
 
         /// <summary>
         /// Process Google login, creating a user if needed
         /// </summary>
-        Task<User> ProcessGoogleLoginAsync(string accessToken, string ipAddress);
+        Task<User> ProcessGoogleLoginAsync(string code, string ipAddress);
     }
 } 

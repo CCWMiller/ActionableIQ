@@ -176,10 +176,10 @@ app.MapControllers();
 
 // Authentication endpoints
 app.MapPost("/api/auth/google", async (
-    [FromBody] GoogleAuthRequest request,
+    [FromBody] GoogleCodeRequest request,
     [FromServices] IGoogleAuthService googleAuthService,
     [FromServices] IJwtService jwtService,
-    [FromServices] ILogger<Program> routeLogger, // Renamed to avoid conflict
+    [FromServices] ILogger<Program> routeLogger,
     HttpContext httpContext) =>
 {
     try
@@ -189,7 +189,7 @@ app.MapPost("/api/auth/google", async (
         
         // Process the google login
         var user = await googleAuthService.ProcessGoogleLoginAsync(
-            request.AccessToken, 
+            request.Code,
             httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
         
         // Generate JWT tokens
@@ -428,6 +428,6 @@ catch (Exception ex)
 Console.WriteLine("AIQ Log: Console - Program.cs execution finished (should not happen if app.Run() is blocking).");
 
 // Request and response models
-public record GoogleAuthRequest(string AccessToken);
+public record GoogleCodeRequest(string Code);
 public record RefreshTokenRequest(string RefreshToken);
 public record RevokeTokenRequest(string Token);
