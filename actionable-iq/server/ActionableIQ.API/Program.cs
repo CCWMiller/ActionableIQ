@@ -124,7 +124,10 @@ try // Wrap early configurations
     {
         options.AddPolicy("AllowLocalhost", policy =>
         {
-            policy.WithOrigins("http://localhost:3000") // This will only work if Cloud Run is proxied from localhost:3000, adjust for actual frontend URL if needed
+            policy.WithOrigins(
+                "http://localhost:3000",
+                "https://frontend-service-788583965739.us-east5.run.app"
+                ) // This will only work if Cloud Run is proxied from localhost:3000, adjust for actual frontend URL if needed
                   .AllowAnyHeader()
                   .AllowAnyMethod();
         });
