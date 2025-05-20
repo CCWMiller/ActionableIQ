@@ -1,42 +1,96 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: backend-service
-  # Service-level annotations (if any are truly service-level) could go here
-  # For example, if you were setting a global description for the service.
-  # Knative maxScale CAN be here, but for Cloud Run, it's often better on the template for clarity.
+  name: backend-service # This is your Cloud Run service name
   labels:
     delivery-pipeline-id: actionable-iq-pipeline
     location: us-east5
     managed-by: google-cloud-deploy
     project-id: actionableiq
-    target-id: backend-prod
+    target-id: backend-prod # Ensures this is for the 'backend-prod' target
 spec:
   template:
-    metadata: # <--- METADATA FOR THE REVISION TEMPLATE
-      name: backend-service-prod-rev-v3 # Optional: Revision name hint (ensure this is unique too)
+    metadata: # Metadata for the Revision Template
+      name: backend-service-prod-v4 # <<< UPDATE 'vNext' to a new unique version, e.g., "backend-service-prod-v4"
       annotations:
-        # Cloud Run specific autoscaling for the REVISION
-        run.googleapis.com/max-instances: "20" # Preferred Cloud Run way for revision max scaling
-        # Your uniqueness annotation for the REVISION
-        clouddeploy.googleapis.com/prod-rollout-version: "prod-backend-v2"
+        run.googleapis.com/max-instances: "20" # Your desired max instances for production
+        clouddeploy.googleapis.com/prod-rollout-version: "prod-backend-v4" # <<< UPDATE 'vNext' to a new unique version, e.g., "prod-backend-v4"
     spec:
       serviceAccountName: backend-service-runner@actionableiq.iam.gserviceaccount.com
       containers:
-      - image: backend-image
-        # ... rest of your backend container spec (ports, env, secrets, resources, startupProbe) ...
-        # Ensure ASPNETCORE_ENVIRONMENT is "Production"
-        # Ensure Authentication__Google__RedirectUri points to the *staging* frontend URL for this first pass
+      - image: backend-image # Skaffold will replace this
+        ports: # <<< ADDED THIS SECTION BACK
+        - name: http1
+          containerPort: 8080
         env:
         - name: ASPNETCORE_URLS
           value: "http://+:8080"
         - name: ASPNETCORE_ENVIRONMENT
-          value: "Production"
-        # ... (all your other env vars and secretKeyRefs from the working staging YAML)
-        # Make sure Authentication__Google__RedirectUri is:
+          value: "Production" # Set to Production
+
+        # Plain text JWT settings
+        - name: JwtSettings__Issuer
+          value: "actionableiq"
+        - name: JwtSettings__Audience
+          value: "actionableiq-api"
+        - name: JwtSettings__TokenExpiryMinutes
+          value: "60"
+        - name: JwtSettings__RefreshTokenExpiryDays
+          value: "7"
+
+        # Plain text Mailgun settings (domain, sender)
+        - name: Mailgun__Domain
+          value: "sandboxb829c3eee5334b14a9b271fbb63ef620.mailgun.org" # Assuming same for prod
+        - name: Mailgun__SenderEmail
+          value: "reports@sandboxb829c3eee5334b14a9b271fbb63ef620.mailgun.org" # Assuming same for prod
+        - name: Mailgun__SenderName
+          value: "ActionableIQ Analytics" # Assuming same for prod
+
+        # Plain text Google Auth settings (Client ID, Redirect URI)
+        - name: Authentication__Google__ClientId
+          value: "788583965739-jdtuifdn617lsh59mtg5775c4v0ms110.apps.googleusercontent.com" # Assuming same OAuth Client ID for prod
         - name: Authentication__Google__RedirectUri
-          value: "https://frontend-service-788583965739.us-east5.run.app" # STAGING frontend URL for now
-        # ...
+          # For FIRST production deployment pass, this might still be STAGING frontend URL.
+          # For SECOND production deployment pass, UPDATE to PRODUCTION frontend URL.
+          value: "https://frontend-service-788583965739.us-east5.run.app" # <<< REVIEW/UPDATE THIS LATER
+
+        # Plain text Google Analytics settings
+        - name: GoogleAnalytics__ApplicationName
+          value: "ActionableIQ Analytics"
+        - name: GoogleAnalytics__MaxConcurrentRequests
+          value: "5"
+
+        # Secret-backed environment variables
+        - name: JwtSettings__Secret
+          valueFrom:
+            secretKeyRef:
+              name: jwt-secret # Assuming same secret name for prod
+              key: latest
+        - name: Mailgun__ApiKey
+          valueFrom:
+            secretKeyRef:
+              name: mailgun-api-key # Assuming same secret name for prod
+              key: latest
+        - name: ConnectionStrings__DefaultConnection
+          valueFrom:
+            secretKeyRef:
+              name: actionableiq-db-connection-string # Assuming same secret name for prod (points to same DB)
+              key: latest
+        - name: Authentication__Google__ClientSecret
+          valueFrom:
+            secretKeyRef:
+              name: google-client-secret # Assuming same secret name for prod
+              key: latest
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 4Gi
+        startupProbe: # <<< ADDED THIS SECTION BACK (using values from your previous prod attempt)
+          timeoutSeconds: 240
+          periodSeconds: 240
+          failureThreshold: 1
+          tcpSocket:
+            port: 8080
   traffic:
   - latestRevision: true
     percent: 100
