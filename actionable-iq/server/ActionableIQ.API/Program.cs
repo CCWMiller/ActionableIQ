@@ -129,7 +129,8 @@ try // Wrap early configurations
                 "https://frontend-service-788583965739.us-east5.run.app"
                 ) // This will only work if Cloud Run is proxied from localhost:3000, adjust for actual frontend URL if needed
                   .AllowAnyHeader()
-                  .AllowAnyMethod();
+                  .AllowAnyMethod()
+                  .AllowCredentials();
         });
     });
     Console.WriteLine("AIQ Log: Console - Cors added.");
