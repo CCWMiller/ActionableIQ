@@ -18,6 +18,7 @@ spec:
         # run.googleapis.com/startupProbeType: Custom # This is usually set by Cloud Run based on probe presence
       annotations:
         autoscaling.knative.dev/maxScale: '40' # Keep if needed
+        clouddeploy.googleapis.com/prod-rollout-version: "prod-rev-$(date +%s)"
     spec:
       containerConcurrency: 80 # Keep if needed
       timeoutSeconds: 300      # Keep if needed
