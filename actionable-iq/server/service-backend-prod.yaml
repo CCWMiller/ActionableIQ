@@ -4,7 +4,7 @@ metadata:
   name: backend-service
   annotations:
     autoscaling.knative.dev/maxScale: '20' # Or your desired prod maxScale
-    clouddeploy.googleapis.com/prod-rollout-version: "prod-backend-rev-$(date +%s)" 
+    clouddeploy.googleapis.com/prod-rollout-version: "prod-backend-v2" 
         # clouddeploy.googleapis.com/prod-rollout-version: "prod-backend-attempt-1"
   labels: # Keep your Cloud Deploy labels (these are important for Cloud Deploy to manage the service)
     delivery-pipeline-id: actionable-iq-pipeline
