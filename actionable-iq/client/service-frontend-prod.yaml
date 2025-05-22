@@ -11,7 +11,7 @@ metadata:
 spec:
   template:
     metadata: # <--- METADATA FOR THE REVISION TEMPLATE
-      name: frontend-service-prod-rev-v4 # Optional: Revision name hint (make this unique, e.g., "frontend-prod-v2")
+      name: frontend-service-prod-rev-v5 # Optional: Revision name hint (make this unique, e.g., "frontend-prod-v2")
       annotations:
         run.googleapis.com/max-instances: "40" # Preferred Cloud Run way for revision max scaling
         clouddeploy.googleapis.com/prod-rollout-version: "prod-frontend-v2" # Your unique annotation
