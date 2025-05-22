@@ -348,63 +348,6 @@ app.MapGet("/api/users/me", async (
 .WithName("GetCurrentUser")
 .WithOpenApi();
 
-// Google Analytics endpoints (These are now handled by AnalyticsController)
-/* // Removing duplicate Minimal API definition for /api/analytics/properties
-app.MapGet("/api/analytics/properties", async (
-    [FromServices] IGoogleAnalyticsService analyticsService,
-    [FromServices] ILogger<Program> logger,
-    HttpContext httpContext) =>
-{
-    // ... implementation ...
-})
-.RequireAuthorization()
-.WithName("GetAnalyticsProperties")
-.WithOpenApi();
-*/
-
-/* // Removing duplicate Minimal API definition for /api/analytics/properties/{propertyId}
-// Get property details endpoint
-app.MapGet("/api/analytics/properties/{propertyId}", async (
-    string propertyId,
-    [FromServices] IGoogleAnalyticsAdminService adminService,
-    [FromServices] ILogger<Program> logger,
-    HttpContext httpContext) =>
-{
-    // ... implementation ...
-})
-.RequireAuthorization()
-.WithName("GetPropertyDetails")
-.WithOpenApi();
-*/
-
-/* // Removing duplicate Minimal API definition for /api/analytics/query
-app.MapPost("/api/analytics/query", async (
-    [FromBody] AnalyticsQueryRequest request,
-    [FromServices] IGoogleAnalyticsService analyticsService,
-    [FromServices] ILogger<Program> logger,
-    HttpContext httpContext) =>
-{
-     // ... implementation ...
-})
-.RequireAuthorization()
-.WithName("QueryAnalyticsData")
-.WithOpenApi();
-*/
-
-/* // Removing duplicate Minimal API definition for /api/analytics/batch-query
-app.MapPost("/api/analytics/batch-query", async (
-    [FromBody] List<AnalyticsQueryRequest> requests,
-    [FromServices] IGoogleAnalyticsService analyticsService,
-    [FromServices] ILogger<Program> logger,
-    HttpContext httpContext) =>
-{
-    // ... implementation ...
-})
-.RequireAuthorization()
-.WithName("BatchQueryAnalyticsData")
-.WithOpenApi();
-*/
-
 app.MapGet("/api/health", () =>
 {
     Console.WriteLine("AIQ Log: Console - Health check endpoint /api/health was hit."); // Log when health check is called

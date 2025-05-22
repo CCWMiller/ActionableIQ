@@ -42,16 +42,6 @@ const Navbar: React.FC = () => {
                 >
                   Query
                 </Link>
-                <Link
-                  to="/excel-upload"
-                  className={`px-3 py-2 rounded-md text-sm font-medium ${
-                    isActive('/excel-upload')
-                      ? 'bg-indigo-700 text-white'
-                      : 'text-indigo-100 hover:bg-indigo-500'
-                  }`}
-                >
-                  Excel Upload
-                </Link>
               </div>
             )}
           </div>

@@ -8,9 +8,6 @@ import ProtectedRoute from './components/routing/ProtectedRoute';
 import AppLayout from './components/layout/AppLayout';
 import QueryPage from './features/query/QueryPage';
 
-// Placeholder component for Excel Upload page
-const ExcelUploadPage = () => <div className="p-4 bg-white rounded-lg shadow">Excel Upload Page (Protected)</div>;
-
 function App() {
   // Your Google OAuth Client ID (replace with actual client ID when in production)
   const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || 'your-client-id';
@@ -27,7 +24,6 @@ function App() {
             <Route element={<ProtectedRoute />}>
               <Route element={<AppLayout />}>
                 <Route path="/query" element={<QueryPage />} />
-                <Route path="/excel-upload" element={<ExcelUploadPage />} />
               </Route>
             </Route>
           </Routes>

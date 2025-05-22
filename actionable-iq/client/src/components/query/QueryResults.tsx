@@ -3,9 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import { selectProperties, selectActiveQuery } from '../../store/slices/analyticsQuerySlice';
 // Import the types
-// Removed AnalyticsQueryError as it's not directly used here now
 import { AnalyticsProperty, AnalyticsMultiQueryResponse, AnalyticsQueryResponse } from '../../types/analytics.types';
-// import ReportResults from '../report/ReportResults'; // Commented out for now
 import EmailReportModal from '../common/EmailReportModal';
 import { apiClient } from '../../services/api/apiClient';
 
@@ -88,8 +86,6 @@ const QueryResults: React.FC<QueryResultsProps> = ({
       console.log('[QueryResults] No properties found in state to build map.');
     }
   }, [allProperties]); // Dependency array ensures this runs when properties load
-
-  // const [showReportView, setShowReportView] = useState(false); // Commented out for now
   
   useEffect(() => {
     // Log component props on mount or when results change
@@ -98,19 +94,6 @@ const QueryResults: React.FC<QueryResultsProps> = ({
       isLoading,
       hasError: !!error
     });
-    
-    // if (results) {
-    //   console.log('[QueryResults] Query results object:', results); // Log the full results object
-    //   console.log('[QueryResults] Multi-results structure:', {
-    //     successCount: results.results?.length ?? 0,
-    //     errorCount: results.errors?.length ?? 0,
-    //     firstSuccessResult: results.results?.[0] ? {
-    //        propertyId: results.results[0].propertyId, // Log the ID format here
-    //        rowCount: results.results[0].rowCount,
-    //        hasRows: !!results.results[0].rows && results.results[0].rows.length > 0,
-    //     } : 'No successful results'
-    //   });
-    // }
   }, [results, isLoading, error]);
   
   // Get query date range from active query or use fallback
@@ -303,11 +286,6 @@ const QueryResults: React.FC<QueryResultsProps> = ({
     document.body.removeChild(link);
   };
   
-  // Commented out report view toggle
-  // const toggleReportView = () => {
-  //   setShowReportView(!showReportView);
-  // };
-  
   // Handle sending emails
   const handleSendEmails = async (emails: string[]) => {
     
@@ -342,52 +320,6 @@ const QueryResults: React.FC<QueryResultsProps> = ({
         reportName: finalReportName, // Use the determined name
         csvData: csvData // Send the generated CSV string
       };
-
-      // Use the dedicated email endpoint
-      console.log("[handleSendEmails] Preparing to send email"); // Use console.log
-      //const endpointUrl = '/api/report/email'; // Changed to relative path
-      // const requestOptions = {
-      //   method: 'POST',
-      //   headers: {
-      //     'Authorization': `Bearer ${token}`,
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify(emailRequestPayload) // Send the correct payload
-      // };
-
-      // // Avoid logging the full Authorization header in production
-      // console.log('[handleSendEmails] Fetch Headers:', { 
-      //     'Content-Type': requestOptions.headers['Content-Type'],
-      //     'Authorization': requestOptions.headers.Authorization ? 'Bearer PRESENT' : 'Bearer MISSING' 
-      // });
-      // console.log('[handleSendEmails] Fetch Body:', requestOptions.body);
-
-      //const response = await fetch(endpointUrl, requestOptions);
-      
-      //console.log(`[handleSendEmails] Response Status: ${response.status}`);
-      //console.log(`[handleSendEmails] Response Status Text: ${response.statusText}`);
-
-      // if (!response.ok) {
-      //   let errorData = { message: `Request failed with status ${response.status}` };
-      //   try {
-      //      // Try to parse backend error message if available
-      //      errorData = await response.json();
-      //      console.error('[handleSendEmails] Received error response body:', errorData);
-      //   } catch (parseError) {
-      //      console.error('[handleSendEmails] Could not parse error response body. Status text:', response.statusText);
-      //   }
-      //   throw new Error(errorData.message || 'Failed to send email');
-      // }
-      
-      // Log success response data if needed
-      //  try {
-      //      const responseData = await response.json();
-      //      console.log('[handleSendEmails] Received success response body:', responseData);
-      //      return responseData; // Return the parsed success response
-      //  } catch (parseError) {
-      //      console.log('[handleSendEmails] Could not parse success response body, assuming success based on status code.');
-      //      return { success: true, message: 'Email sent successfully (no JSON body)' }; // Indicate success
-      //  }
       console.log("[handleSendEmails] Preparing to send email via apiClient");
           
       // Use apiClient.post for the request
@@ -788,11 +720,6 @@ const QueryResults: React.FC<QueryResultsProps> = ({
                                 // Format the average duration, potentially adding 's'
                                 cellValue = formatColumnValue(totals.averageEngagementDuration.toString(), 'userEngagementDuration');
                                 break;
-                              // Add cases for other potential aggregated columns if needed
-                              // case 'Date Range': // Keep blank
-                              // case 'Source / Medium': // Keep blank
-                              //   cellValue = ''; 
-                              //   break;
                               default:
                                 cellValue = ''; // Keep other dimension/added columns blank
                             }

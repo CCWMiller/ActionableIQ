@@ -32,23 +32,11 @@ ActionableIQ is a web application that enables users to query Google Analytics d
 1. **Query Page**
    - Direct querying of Google Analytics data
    - Support for querying multiple sources simultaneously
-   - Generation of Excel-formatted reports
+   - Generation of formatted reports
 
-2. **Excel Upload Page**
-   - Upload Excel files containing queryable data
-   - Automatic query generation based on file content
-   - New Excel file generation with original data plus Google Analytics insights
-
-3. **Report Actions**
+2. **Report Actions**
    - Email reports to specified addresses
-   - Download reports as Excel files
-   - Visualize data via US heatmap
-   - Interact with AI chatbot for data insights
-
-4. **AI Chatbot**
-   - Context-aware analysis of generated reports
-   - Meaningful insights based on report data
-   - Dedicated chat interface
+   - Download reports as CSV files
 
 ## Pages
 
@@ -60,11 +48,6 @@ ActionableIQ is a web application that enables users to query Google Analytics d
 2. **Query Page**
    - Navigation header with logo and logout
    - Form with PropertyIds, Source/Medium filter, date range, and result count
-   - Report display area
-
-3. **Excel Upload Page**
-   - Navigation header with logo and logout
-   - Excel file upload form
    - Report display area
 
 ## Development Requirements
@@ -80,7 +63,7 @@ ActionableIQ is a web application that enables users to query Google Analytics d
 - State management using Redux
 - Accessibility compliance
 
-### Testing Requirements
+### Testing Requirements (Coming Soon)
 - Test-driven development approach
 - 90%+ unit test coverage (measured by Istanbul)
 - Comprehensive test suite:
@@ -92,7 +75,7 @@ ActionableIQ is a web application that enables users to query Google Analytics d
   - Error handling tests
   - Accessibility tests
 
-### Testing Stack
+### Testing Stack (Coming Soon)
 - Jest + React Testing Library for unit/integration tests
 - Cypress for E2E testing
 - MSW for API mocking
@@ -154,7 +137,15 @@ npm run test:coverage
 
 ## Deployment
 
-The application is configured to deploy to Google Cloud. CI/CD pipelines will run tests before deployment to ensure code quality.
+The application is configured to deploy to Google Cloud. CI/CD pipelines run tests before deployment to ensure code quality.
+
+The deployment process follows these steps:
+1. A GitHub push kicks off the Cloud Run build
+2. The frontend is rolled out first and must be promoted by the application owner
+3. Once the frontend promotion is complete, the backend rollout begins
+4. The backend must also be promoted to production
+5. Each promotion requires a review process
+6. Once both rollouts are promoted to production, the deployment is complete
 
 ## Authentication
 
@@ -165,119 +156,9 @@ The application uses Google Cloud OAuth 2.0 for authentication. Users will be re
 Instead of using a database for persistence, the application follows a stateless approach:
 
 1. User authenticates via Google OAuth
-2. User inputs query parameters or uploads Excel file
+2. User inputs query parameters
 3. Application processes input and queries Google Analytics API
 4. Results are processed and displayed in the application
-5. User can perform actions on the generated report (download, email, visualize, analyze)
+5. User can perform actions on the generated report (download, email)
 
 This stateless architecture simplifies deployment and maintenance while still providing all core functionality. If persistent storage needs arise in the future (for saved queries, report templates, etc.), a database component can be added.
-
-
-## Development Plan
-
-### Phase 1: Core Infrastructure (1-2 weeks)
-
-1. **Frontend Authentication**
-   - Implement Google OAuth integration
-   - Create login/logout functionality
-   - Set up protected routes
-
-2. **Backend API Setup**
-   - Configure Google Analytics API integration
-   - Create endpoints for data retrieval
-   - Set up authentication middleware
-   - Implement error handling
-
-3. **State Management**
-   - Configure Redux store
-   - Create reducers for authentication, queries, and reports
-   - Set up API middleware for async operations
-
-### Phase 2: Query Feature (2-3 weeks)
-
-1. **Query Form Components**
-   - Build PropertyIds selector
-   - Create date range picker
-   - Implement Source/Medium filter
-   - Add result count input
-
-2. **Report Display**
-   - Design data table component
-   - Implement sorting and filtering
-   - Create report summary section
-
-3. **API Integration**
-   - Connect form to backend API
-   - Implement data fetching and transformation
-   - Add loading states and error handling
-
-### Phase 3: Excel Upload Feature (2 weeks)
-
-1. **File Upload Component**
-   - Create drag-and-drop interface
-   - Implement file validation
-   - Add progress indicator
-
-2. **Excel Processing**
-   - Develop Excel parsing functionality
-   - Create query generation from Excel data
-   - Implement Excel output generation
-
-### Phase 4: Report Actions (2-3 weeks)
-
-1. **Download Functionality**
-   - Implement Excel export
-   - Create PDF export option
-
-2. **Email Feature**
-   - Build email form component
-   - Implement email sending functionality
-   - Add email templates
-
-3. **Heatmap Visualization**
-   - Integrate US map component
-   - Implement data visualization logic
-   - Add interaction and tooltips
-
-### Phase 5: AI Chatbot (2-3 weeks)
-
-1. **Chat Interface**
-   - Design chat UI component
-   - Implement message display
-   - Create input form
-
-2. **AI Integration**
-   - Set up NLP service connection
-   - Implement context-aware analysis
-   - Create data-driven insights generation
-
-### Phase 6: Testing & QA (Ongoing)
-
-1. **Unit Tests**
-   - Write tests for all components
-   - Create service mocks
-   - Implement state management tests
-
-2. **Integration Tests**
-   - Set up end-to-end testing
-   - Create test scenarios for main user flows
-   - Implement accessibility testing
-
-3. **Performance Optimization**
-   - Conduct load testing
-   - Implement lazy loading
-   - Optimize bundle size
-
-### Phase 7: Deployment & Documentation (1 week)
-
-1. **CI/CD Setup**
-   - Configure build pipeline
-   - Set up automatic testing
-   - Implement deployment process
-
-2. **Documentation**
-   - Create user documentation
-   - Write API documentation
-   - Develop maintenance guide
-
-# comment for deploy
