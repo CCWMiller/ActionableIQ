@@ -15,6 +15,16 @@ interface EmailReportRequest {
     filters?: string;
     limit?: number;
   };
+  csvData?: string; // Added to support sending CSV data directly
+}
+
+/**
+ * Interface matching the server's EmailCsvRequest model
+ */
+interface EmailCsvRequest {
+  recipients: string[];
+  reportName: string;
+  csvData: string; // This is required by the server
 }
 
 /**
@@ -26,7 +36,17 @@ export const reportService = {
    */
   emailReport: async (request: EmailReportRequest, token: string) => {
     try {
-      const response = await apiClient.post<{ message: string }>('/api/report/email', request, {
+      // If csvData is provided, use the direct CSV email endpoint
+      if (request.csvData) {
+        return await reportService.emailCsvReport({
+          recipients: request.recipients,
+          reportName: request.reportName,
+          csvData: request.csvData
+        }, token);
+      }
+      
+      // Otherwise use the standard report endpoint
+      const response = await apiClient.post<{ message: string }>('/report/email', request, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -39,6 +59,36 @@ export const reportService = {
     } catch (error: any) {
       console.error('Error sending email report:', error);
       throw new Error(error.response?.data?.message || 'Failed to send report');
+    }
+  },
+  
+  /**
+   * Email a CSV report directly to recipients
+   */
+  emailCsvReport: async (request: EmailCsvRequest, token: string) => {
+    try {
+      console.log('Sending CSV report with data length:', request.csvData.length);
+      
+      // Make sure we're sending the exact structure the server expects
+      const emailCsvRequest: EmailCsvRequest = {
+        recipients: request.recipients,
+        reportName: request.reportName,
+        csvData: request.csvData
+      };
+      
+      const response = await apiClient.post<{ message: string }>('/report/email', emailCsvRequest, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      return {
+        success: true,
+        message: response.message || 'CSV report sent successfully'
+      };
+    } catch (error: any) {
+      console.error('Error sending CSV report:', error);
+      throw new Error(error.response?.data?.message || 'Failed to send CSV report');
     }
   },
   
@@ -66,26 +116,22 @@ export const reportService = {
   },
   
   /**
-   * Generate a visualization for a report
+   * Generate a visualization from report data
    */
-  generateVisualization: (
-    reportId: string, 
-    visualizationType: 'heatmap' | 'bar' | 'line' | 'pie', 
-    token: string
-  ) => {
+  generateVisualization: async (reportId: string, visualizationType: string, token: string) => {
     // In a real implementation, this would call an API endpoint
     // For now, we'll just simulate a successful response
     console.log('Generating visualization:', reportId, visualizationType);
     
     // Return a promise that resolves after a short delay
-    return new Promise<{ success: boolean; visualizationUrl: string; message: string }>((resolve) => {
+    return new Promise<{ success: boolean; message: string; visualizationUrl: string }>((resolve) => {
       setTimeout(() => {
         resolve({
           success: true,
-          visualizationUrl: `https://example.com/visualizations/${reportId}/${visualizationType}`,
-          message: `${visualizationType} visualization generated successfully`
+          message: 'Visualization generated successfully',
+          visualizationUrl: `https://example.com/visualizations/${reportId}/${visualizationType}`
         });
-      }, 1000);
+      }, 1500);
     });
   }
 }; 
