@@ -1,6 +1,9 @@
 import React from 'react';
 import { AnalyticsProperty } from '../../types/analytics.types';
 
+// SharePoint link for property IDs list
+const PROPERTY_IDS_LINK = "https://srppm.sharepoint.com/:x:/r/sites/SamWFiles/Shared%20Documents/Ad%20Hoc/GA4%20Property%20IDs%20for%20Dealers.xlsx?d=wf47932fd3e4841378e1c1298ffcb15a2&csf=1&web=1&e=IgrXp4";
+
 interface PropertySelectProps {
   properties: AnalyticsProperty[];
   selectedIds: string;
@@ -35,11 +38,11 @@ const PropertySelect: React.FC<PropertySelectProps> = ({
         Property IDs
       </label>
       
-      <div className="flex space-x-2">
+      <div className="flex space-x-2 items-center">
         <input
           type="text"
           id="propertyIds"
-          placeholder="Enter numbers only"
+          placeholder="Enter numbers only (comma-separated)"
           value={selectedIds}
           onChange={handleManualInput}
           className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -49,9 +52,9 @@ const PropertySelect: React.FC<PropertySelectProps> = ({
           <button
             type="button"
             onClick={onRunBenchmarkReport}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+            className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded focus:outline-none focus:ring-2 focus:ring-green-500 whitespace-nowrap"
           >
-            Run Benchmark Report
+            Run All Properties Query
           </button>
         )}
       </div>

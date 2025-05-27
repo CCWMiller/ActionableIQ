@@ -6,6 +6,8 @@ import { useSelector } from 'react-redux';
 import { selectAuth } from '../../store/slices/authSlice';
 import { analyticsApi } from '../../services/api/analyticsApi';
 import { reportService } from '../../services/api/reportService';
+import { generateStandardCsvReportData } from '../../utils/csvUtils';
+import type { AnalyticsQueryResponse } from '../../types/analytics.types';
 
 interface QueryFormProps {
   properties: AnalyticsProperty[];
@@ -31,15 +33,17 @@ interface ExtendedEmailReportRequest {
   csvData?: string; // Optional CSV data for the report
 }
 
-// Interface for benchmark results
+// Interface for benchmark results (ensure compatibility with AnalyticsQueryResponse for csvUtils)
 interface BenchmarkResult {
   propertyId: string;
   dimensionHeaders: Array<{name: string}>;
-  metricHeaders: Array<{name: string; type: string}>;
+  metricHeaders: Array<{name: string; type?: string}>; // type is optional in AnalyticsQueryResponse headers
   rows: Array<{
     dimensionValues: Array<{value: string}>;
     metricValues: Array<{value: string}>;
   }>;
+  rowCount?: number; // Available in AnalyticsQueryResponse
+  metadata?: any;    // Available in AnalyticsQueryResponse
 }
 
 // Predefined property IDs for benchmark report
@@ -53,8 +57,8 @@ const BENCHMARK_PROPERTY_IDS = [
   "315002244", "314953528", "315002244", "403517518", "346738029", "350352231", 
   "346803562", "316851664", "261505635", "261205528", "326699961", "360066647", 
   "401017604", "317189004", "333200364", "333200057", "312883574", "373584301", 
-  "333203474", "386384488", "333205392", "386964789", "304575611", "304624383", 
-  "295881351", "350355991", "272227841", "334728864", "251436487", "326611650", 
+  "333203474", "386394488", "333205392", "386964789", "304575611", "304624383", 
+  "295881351", "350355991", "272227841", "334728864", "251436497", "326611650", 
   "353733469", "375707463", "262384102", "318006744", "262401021", "262404657", 
   "262387703", "319042159", "378118358", "262409134", "439542477", "375756916", 
   "363062560", "398485794", "399474323", "331623978", "273390330", "384172922", 
@@ -70,7 +74,7 @@ const BENCHMARK_PROPERTY_IDS = [
 const MAX_PROPERTY_IDS_PER_BATCH = 50;
 
 // Predefined email for benchmark report
-const BENCHMARK_EMAIL = "ggeodakyan@gmail.com";
+const BENCHMARK_EMAIL = "willmmillerdev@gmail.com";
 
 // TOS Benchmark value in seconds
 const TOS_BENCHMARK_VALUE = 30;
@@ -92,6 +96,9 @@ function chunkArray<T>(array: T[], chunkSize: number): T[][] {
 /**
  * Query Form Component
  * Handles user input for Google Analytics queries
+ * 
+ * Note: Data processing for New User % and benchmark columns (TOS Benchmark, Passed Benchmark)
+ * is now handled in analyticsActions.ts for both regular queries and benchmark queries.
  */
 const QueryForm: React.FC<QueryFormProps> = ({
   properties,
@@ -120,122 +127,22 @@ const QueryForm: React.FC<QueryFormProps> = ({
     const start = new Date();
     start.setDate(end.getDate() - 30);
     
-    setStartDate(formatDate(start));
-    setEndDate(formatDate(end));
+    setStartDate(formatDateForApi(start));
+    setEndDate(formatDateForApi(end));
   }, []);
   
   // Format date to YYYY-MM-DD
-  const formatDate = (date: Date): string => {
+  const formatDateForApi = (date: Date): string => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
 
-  // Process data to add benchmark columns
-  const processBenchmarkData = (result: any): BenchmarkResult => {
-    // Clone the result to avoid modifying the original
-    const benchmarkedResult = { ...result };
-    
-    // Add new headers for the benchmark columns
-    benchmarkedResult.dimensionHeaders = [...result.dimensionHeaders];
-    benchmarkedResult.metricHeaders = [
-      ...result.metricHeaders,
-      { name: 'TOS Benchmark', type: 'METRIC_TYPE_SECONDS' },
-      { name: 'Passed Benchmark', type: 'METRIC_TYPE_BOOLEAN' }
-    ];
-    
-    // Add benchmark values to each row
-    benchmarkedResult.rows = result.rows.map((row: any) => {
-      // Find the average session duration metric
-      const metricValues = [...row.metricValues];
-      const userEngagementIndex = result.metricHeaders.findIndex((h: {name: string}) => h.name === 'userEngagementDuration');
-      const activeUsersIndex = result.metricHeaders.findIndex((h: {name: string}) => h.name === 'activeUsers');
-      
-      if (userEngagementIndex >= 0 && activeUsersIndex >= 0) {
-        const userEngagementDuration = parseFloat(row.metricValues[userEngagementIndex].value);
-        const activeUsers = parseFloat(row.metricValues[activeUsersIndex].value);
-        
-        // Calculate average session duration
-        let avgSessionDuration = 0;
-        if (activeUsers > 0) {
-          avgSessionDuration = userEngagementDuration / activeUsers;
-        }
-        
-        // Add benchmark columns
-        metricValues.push({ value: TOS_BENCHMARK_VALUE.toString() }); // TOS Benchmark
-        metricValues.push({ value: (avgSessionDuration > TOS_BENCHMARK_VALUE).toString() }); // Passed Benchmark
-      } else {
-        // If metrics not found, add placeholders
-        metricValues.push({ value: TOS_BENCHMARK_VALUE.toString() }); // TOS Benchmark
-        metricValues.push({ value: 'false' }); // Passed Benchmark
-      }
-      
-      return {
-        ...row,
-        metricValues
-      };
-    });
-    
-    return benchmarkedResult;
-  };
-  
-  // Generate CSV report from analytics results
-  const generateCSVReport = (results: BenchmarkResult[]): string => {
-    // Initialize CSV rows with headers
-    let csvRows: string[] = [];
-    
-    // Add a header row even if no results are available
-    const headers = ['Property ID', 'Region', 'Source/Medium', 'Active Users', 'New Users', 'Total Users', 'User Engagement Duration', 'TOS Benchmark', 'Passed Benchmark'];
-    csvRows.push(headers.join(','));
-    
-    console.log(`Processing ${results.length} results for CSV generation`);
-    
-    // Process each property result
-    results.forEach((result, idx) => {
-      // Skip empty results
-      if (!result || !result.rows || result.rows.length === 0) {
-        console.log(`Skipping empty result for property ${idx}`);
-        return;
-      }
-      
-      console.log(`Processing property ID: ${result.propertyId}, with ${result.rows.length} rows`);
-      
-      // Process rows for this property
-      result.rows.forEach((row: any) => {
-        try {
-          // Safely extract dimension and metric values
-          const dimensionValues = row.dimensionValues ? 
-            row.dimensionValues.map((d: {value: string}) => `"${d.value || ''}"`) : 
-            ['"(not set)"', '"(not set)"'];
-          
-          const metricValues = row.metricValues ? 
-            row.metricValues.map((m: {value: string}) => m.value || '0') : 
-            ['0', '0', '0', '0', '0', 'false'];
-          
-          // Add property ID to the row
-          csvRows.push([result.propertyId, ...dimensionValues, ...metricValues].join(','));
-        } catch (error) {
-          console.error(`Error processing row for property ${result.propertyId}:`, error);
-        }
-      });
-    });
-    
-    // If we have no data rows, add a default row to make sure the CSV isn't empty
-    if (csvRows.length === 1) {
-      csvRows.push(['0', '"No Data"', '"No Data"', '0', '0', '0', '0', '30', 'false'].join(','));
-    }
-    
-    // Join rows with newlines to create CSV string
-    const csvContent = csvRows.join('\n');
-    console.log(`Generated CSV with ${csvRows.length} rows (${csvContent.length} bytes)`);
-    return csvContent;
-  };
-
-  // Run benchmark report
+  // Run benchmark query
   const handleRunBenchmarkReport = async () => {
     if (!auth.token) {
-      alert('Authentication required to run benchmark report');
+      alert('Authentication required to run benchmark query');
       return;
     }
     
@@ -244,14 +151,12 @@ const QueryForm: React.FC<QueryFormProps> = ({
       setBenchmarkStatus('Preparing benchmark query...');
       setBenchmarkProgress(0);
       
-      // Split property IDs into batches to respect the 50-property limit
       const propertyIdBatches = chunkArray(BENCHMARK_PROPERTY_IDS, MAX_PROPERTY_IDS_PER_BATCH);
       const totalBatches = propertyIdBatches.length;
       
       setBenchmarkStatus(`Processing ${BENCHMARK_PROPERTY_IDS.length} properties in ${totalBatches} batches...`);
       
-      // Run queries for each batch and collect all results
-      const allResults: any[] = [];
+      const allResults: BenchmarkResult[] = [];
       for (let i = 0; i < propertyIdBatches.length; i++) {
         const batch = propertyIdBatches[i];
         const batchNumber = i + 1;
@@ -259,7 +164,6 @@ const QueryForm: React.FC<QueryFormProps> = ({
         setBenchmarkStatus(`Running batch ${batchNumber}/${totalBatches} (${batch.length} properties)...`);
         setBenchmarkProgress(Math.floor((i / totalBatches) * 100));
         
-        // Create query object for this batch
         const batchQuery: AnalyticsQueryRequest = {
           propertyIds: batch,
           metrics: ["activeUsers", "newUsers", "totalUsers", "userEngagementDuration"],
@@ -273,60 +177,71 @@ const QueryForm: React.FC<QueryFormProps> = ({
           filterExpression: ''
         };
         
-        // Execute the query for this batch
         const batchResponse = await analyticsApi.runQuery(batchQuery, auth.token, auth.idToken || undefined);
         
-        // Collect successful results from this batch
         if (batchResponse.results && batchResponse.results.length > 0) {
-          allResults.push(...batchResponse.results);
+          allResults.push(...batchResponse.results.map(r => ({
+            propertyId: r.propertyId,
+            dimensionHeaders: r.dimensionHeaders,
+            metricHeaders: r.metricHeaders,
+            rows: r.rows,
+            rowCount: r.rowCount
+          } as BenchmarkResult)));
         }
         
-        // Log any errors
         if (batchResponse.errors && batchResponse.errors.length > 0) {
           console.error(`Batch ${batchNumber} errors:`, batchResponse.errors);
         }
       }
       
-      // Process all results to add benchmark columns
-      setBenchmarkStatus('Processing benchmark data...');
-      setBenchmarkProgress(70);
-      
-      const processedResults = allResults.map((result: any) => {
-        // Get only the total rows for each property
-        const propertyTotals = {
-          ...result,
-          rows: result.rows.filter((row: any) => {
-            // Match the total row (no region, all regions combined)
-            return row.dimensionValues.some((dim: any) => dim.value === "(not set)");
-          })
-        };
-        
-        // Add benchmark columns
-        return processBenchmarkData(propertyTotals);
-      });
-      
-      // Generate CSV report with benchmark data
       setBenchmarkStatus('Generating report...');
       setBenchmarkProgress(80);
+
+      // Create propertyNameRecord for the CSV utility, handling potential ID format differences
+      const propertyNameRecord: Record<string, string> = {};
+      properties.forEach(prop => {
+        if (prop.propertyId && prop.displayName) {
+          // Store the ID as it appears in the properties array
+          propertyNameRecord[prop.propertyId] = prop.displayName;
+          
+          // Also store common variations (with/without 'properties/' prefix)
+          if (prop.propertyId.startsWith('properties/')) {
+            const idWithoutPrefix = prop.propertyId.split('properties/')[1];
+            if (idWithoutPrefix) {
+              propertyNameRecord[idWithoutPrefix] = prop.displayName;
+            }
+          } else {
+            // If it doesn't start with prefix, add one with prefix
+            propertyNameRecord[`properties/${prop.propertyId}`] = prop.displayName;
+          }
+        }
+      });
+
+      const dateRangeForCsv = `${startDate} - ${endDate}`;
+
+      const csvData = generateStandardCsvReportData(
+        allResults as AnalyticsQueryResponse[], 
+        propertyNameRecord, // Pass the Record<string, string>
+        dateRangeForCsv, 
+        TOS_BENCHMARK_VALUE
+      );
       
-      const csvData = generateCSVReport(processedResults);
-      console.log('Generated CSV data, length:', csvData.length, 'First 100 chars:', csvData.substring(0, 100));
+      console.log('Generated CSV data for email, length:', csvData.length, 'First 100 chars:', csvData.substring(0, 100));
       
       if (!csvData || csvData.length === 0) {
-        throw new Error('Failed to generate CSV data');
+        throw new Error('Failed to generate CSV data using new utility');
       }
       
-      // Send report via email
       setBenchmarkStatus('Sending email...');
       setBenchmarkProgress(90);
       
       await reportService.emailCsvReport({
         recipients: [BENCHMARK_EMAIL],
-        reportName: `Analytics Benchmark Report ${formatDate(new Date())}`,
+        reportName: `Analytics Benchmark Report ${formatDateForApi(new Date())}`,
         csvData: csvData
       }, auth.token);
       
-      setBenchmarkStatus('Benchmark report sent successfully!');
+      setBenchmarkStatus('Query report sent successfully!');
       setBenchmarkProgress(100);
       setTimeout(() => {
         setBenchmarkStatus('');
@@ -360,12 +275,12 @@ const QueryForm: React.FC<QueryFormProps> = ({
       return;
     }
     if (!sourceFilter) {
-        alert('Please enter a Source/Medium filter (e.g., client-command / email)');
-        return;
+      alert('Please enter a Source/Medium filter (e.g., client-command / email)');
+      return;
     }
     if (topStatesCount < 1 || topStatesCount > 100) {
-        alert('Top states count must be between 1 and 100');
-        return;
+      alert('Top states count must be between 1 and 100');
+      return;
     }
 
     // Create query object with all necessary fields
@@ -382,6 +297,7 @@ const QueryForm: React.FC<QueryFormProps> = ({
       filterExpression: ''
     };
     
+    // Pass the query to the parent component
     onSubmit(query);
   };
 
@@ -414,7 +330,7 @@ const QueryForm: React.FC<QueryFormProps> = ({
             onChange={setPropertyIds}
             isLoading={propertiesLoading}
             error={propertiesError}
-            onRunBenchmarkReport={handleRunBenchmarkReport} // Add the benchmark handler
+            onRunBenchmarkReport={handleRunBenchmarkReport}
           />
           
           {/* Source/Medium */}

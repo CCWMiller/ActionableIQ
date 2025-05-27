@@ -20,6 +20,84 @@ import {
   setReportError
 } from '../slices/analyticsReportSlice';
 
+// TOS Benchmark value in seconds
+const TOS_BENCHMARK_VALUE = 30;
+
+/**
+ * Process query results to add benchmark columns and New User %
+ */
+const processQueryData = (result: any): any => {
+  // Clone the result to avoid modifying the original
+  const processedResult = { ...result };
+  
+  // Calculate the total active users across all regions for this property
+  let totalActiveUsers = 0;
+  if (result.rows && result.rows.length > 0) {
+    const activeUsersIndex = result.metricHeaders.findIndex((h: {name: string}) => h.name === 'activeUsers');
+    if (activeUsersIndex >= 0) {
+      totalActiveUsers = result.rows.reduce((total: number, row: any) => {
+        const activeUsers = parseFloat(row.metricValues[activeUsersIndex].value) || 0;
+        return total + activeUsers;
+      }, 0);
+    }
+  }
+  
+  // Add new headers for the additional columns
+  processedResult.dimensionHeaders = [...result.dimensionHeaders];
+  processedResult.metricHeaders = [
+    ...result.metricHeaders,
+    { name: 'New User %', type: 'METRIC_TYPE_PERCENT' },
+    { name: 'TOS Benchmark', type: 'METRIC_TYPE_SECONDS' },
+    { name: 'Passed Benchmark', type: 'METRIC_TYPE_BOOLEAN' }
+  ];
+  
+  // Add calculated values to each row
+  processedResult.rows = result.rows.map((row: any) => {
+    // Find the metrics
+    const metricValues = [...row.metricValues];
+    const userEngagementIndex = result.metricHeaders.findIndex((h: {name: string}) => h.name === 'userEngagementDuration');
+    const activeUsersIndex = result.metricHeaders.findIndex((h: {name: string}) => h.name === 'activeUsers');
+    const newUsersIndex = result.metricHeaders.findIndex((h: {name: string}) => h.name === 'newUsers');
+    
+    // Calculate New User %
+    let newUserPercent = 0;
+    if (activeUsersIndex >= 0 && totalActiveUsers > 0) {
+      const activeUsers = parseFloat(row.metricValues[activeUsersIndex].value) || 0;
+      newUserPercent = (activeUsers / totalActiveUsers) * 100;
+      metricValues.push({ value: newUserPercent.toFixed(2) }); // New User %
+    } else {
+      metricValues.push({ value: '0.00' }); // Default New User %
+    }
+    
+    // Add benchmark columns
+    if (userEngagementIndex >= 0 && activeUsersIndex >= 0) {
+      const userEngagementDuration = parseFloat(row.metricValues[userEngagementIndex].value) || 0;
+      const activeUsers = parseFloat(row.metricValues[activeUsersIndex].value) || 0;
+      
+      // Calculate average session duration
+      let avgSessionDuration = 0;
+      if (activeUsers > 0) {
+        avgSessionDuration = userEngagementDuration / activeUsers;
+      }
+      
+      // Add benchmark columns
+      metricValues.push({ value: TOS_BENCHMARK_VALUE.toString() }); // TOS Benchmark
+      metricValues.push({ value: (avgSessionDuration > TOS_BENCHMARK_VALUE).toString() }); // Passed Benchmark
+    } else {
+      // If metrics not found, add placeholders
+      metricValues.push({ value: TOS_BENCHMARK_VALUE.toString() }); // TOS Benchmark
+      metricValues.push({ value: 'false' }); // Passed Benchmark defaults to false
+    }
+    
+    return {
+      ...row,
+      metricValues
+    };
+  });
+  
+  return processedResult;
+};
+
 /**
  * Action creator to fetch Google Analytics properties
  */
@@ -72,6 +150,12 @@ export const executeQuery = (query: AnalyticsQueryRequest) =>
       console.log('[Analytics Action] Query execution successful. Successes: {SuccessCount}, Failures: {FailureCount}', 
         response.results?.length ?? 0, 
         response.errors?.length ?? 0);
+      
+      // Process results to add benchmark columns and New User %
+      if (response.results && response.results.length > 0) {
+        response.results = response.results.map(result => processQueryData(result));
+      }
+      
       dispatch(executeQuerySuccess(response));
       return response;
     } catch (error: any) {
