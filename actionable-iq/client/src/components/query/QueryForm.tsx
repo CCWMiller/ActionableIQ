@@ -70,7 +70,7 @@ const BENCHMARK_PROPERTY_IDS = [
 const MAX_PROPERTY_IDS_PER_BATCH = 50;
 
 // Predefined email for benchmark report
-const BENCHMARK_EMAIL = "willmmillerdev@gmail.com";
+const BENCHMARK_EMAIL = "ggeodakyan@gmail.com";
 
 // TOS Benchmark value in seconds
 const TOS_BENCHMARK_VALUE = 30;
