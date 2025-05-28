@@ -82,7 +82,7 @@ const processQueryData = (result: any): any => {
       
       // Add benchmark columns
       metricValues.push({ value: TOS_BENCHMARK_VALUE.toString() }); // TOS Benchmark
-      metricValues.push({ value: (avgSessionDuration > TOS_BENCHMARK_VALUE).toString() }); // Passed Benchmark
+      metricValues.push({ value: (avgSessionDuration >= TOS_BENCHMARK_VALUE).toString() }); // Passed Benchmark
     } else {
       // If metrics not found, add placeholders
       metricValues.push({ value: TOS_BENCHMARK_VALUE.toString() }); // TOS Benchmark
