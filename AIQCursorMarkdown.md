@@ -162,3 +162,5 @@ Instead of using a database for persistence, the application follows a stateless
 5. User can perform actions on the generated report (download, email)
 
 This stateless architecture simplifies deployment and maintenance while still providing all core functionality. If persistent storage needs arise in the future (for saved queries, report templates, etc.), a database component can be added.
+
+#comment for deployment

@@ -226,8 +226,6 @@ const QueryForm: React.FC<QueryFormProps> = ({
         TOS_BENCHMARK_VALUE
       );
       
-      console.log('Generated CSV data for email, length:', csvData.length, 'First 100 chars:', csvData.substring(0, 100));
-      
       if (!csvData || csvData.length === 0) {
         throw new Error('Failed to generate CSV data using new utility');
       }

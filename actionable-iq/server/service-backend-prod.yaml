@@ -11,7 +11,7 @@ metadata:
 spec:
   template:
     metadata: # Metadata for the Revision Template
-      name: backend-service-prod-v10 # <<< UPDATE 'vNext' to a new unique version, e.g., "backend-service-prod-v4"
+      name: backend-service-prod-v11 # <<< UPDATE 'vNext' to a new unique version, e.g., "backend-service-prod-v4"
       annotations:
         run.googleapis.com/max-instances: "20" # Your desired max instances for production
         clouddeploy.googleapis.com/prod-rollout-version: "prod-backend-v4" # <<< UPDATE 'vNext' to a new unique version, e.g., "prod-backend-v4"
