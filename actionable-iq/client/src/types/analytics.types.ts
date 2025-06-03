@@ -33,6 +33,13 @@ export interface AnalyticsQueryRequest {
  */
 export interface AnalyticsQueryResponse {
   propertyId: string;
+  propertyName: string;
+  dateRange: { startDate: string; endDate: string };
+  totalUsers: number;
+  totalNewUsers: number;
+  totalActiveUsers: number;
+  totalAverageSessionDurationPerUser: number;
+  totalPercentageOfNewUsers: number;
   metadata: QueryMetadata;
   dimensionHeaders: DimensionHeader[];
   metricHeaders: MetricHeader[];

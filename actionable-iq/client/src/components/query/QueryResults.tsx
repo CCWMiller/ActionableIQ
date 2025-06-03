@@ -26,13 +26,18 @@ const formatColumnHeader = (name: string): string => {
     case 'newUsers': return 'New Users';
     case 'activeUsers': return 'Active Users';
     case 'totalUsers': return 'Total Users';
-    case 'userEngagementDuration': return 'Average Session Duration Per Active User';
+    case 'userEngagementDuration': return 'Average Session Duration Per Active User (s)';
+    case 'averageSessionDurationPerUser': return 'Average Session Duration Per Active User (s)';
     case 'region': return 'Region';
     case 'sourceMedium': return 'Source / Medium';
     case 'firstUserSourceMedium': return 'Source / Medium';
-    case 'Total User %': return 'Total User %';
+    case 'New User %': return 'Total User %';
     case 'TOS Benchmark': return 'TOS Benchmark';
-    case 'Passed Benchmark': return 'Passed Benchmark';
+    case 'Passed Benchmark': return 'Passed TOS Benchmark';
+    case 'User % Benchmark': return 'User % Benchmark';
+    case 'Passed Geo Benchmark': return 'Passed Geo Benchmark';
+    case 'Total User Benchmark': return 'Total User Benchmark';
+    case 'Passed Total User Benchmark': return 'Passed Total User Benchmark';
     default: return name.charAt(0).toUpperCase() + name.slice(1).replace(/([A-Z])/g, ' $1');
   }
 };
@@ -45,25 +50,26 @@ const formatColumnHeader = (name: string): string => {
  * @returns Formatted value
  */
 const formatColumnValue = (value: string, columnName: string, forReport: boolean = false): string => {
-  if (columnName === 'userEngagementDuration') {
-    // Formatting for this will be handled by formatDurationForDisplay for UI,
-    // and raw seconds with 's' for reports (handled by formatCsvColumnValue in csvUtils)
-    return `${value}s`; // Keep for other uses or as fallback if needed by formatCsvColumnValue
-  }
-  if (columnName === 'Total User %') {
+  // The (s) is now part of the columnName for Average Session Duration (from formatColumnHeader).
+  // Actual UI display of duration is handled by formatDurationForDisplay in getCellValueForDisplay.
+
+  if (columnName === 'New User %' || columnName === 'User % Benchmark') {
     return `${value}%`;
   }
   if (columnName === 'TOS Benchmark') {
     // Always add 's' suffix for TOS Benchmark, regardless of report or display
     return `${value}s`;
   }
-  if (columnName === 'Passed Benchmark') {
+  if (columnName === 'Passed TOS Benchmark' || columnName === 'Passed Geo Benchmark' || columnName === 'Passed Total User Benchmark') {
     // For reports, use TRUE/FALSE format
     if (forReport) {
       return value.toUpperCase();
     }
-    // For display, use Yes/No format
+    // For display, use TRUE/FALSE format
     return value === 'true' ? 'TRUE' : 'FALSE';
+  }
+  if (columnName === 'Total User Benchmark') {
+    return value;
   }
   return value;
 };
@@ -291,109 +297,114 @@ const QueryResults: React.FC<QueryResultsProps> = ({
   
   // Function to reorder columns for display (UI specific)
   const getOrderedColumnsForDisplay = (dimensionHeaders: any[], metricHeaders: any[]) => {
-    // ... this is the original getOrderedColumns logic from QueryResults.tsx ...
-    // Uses formatDisplayColumnHeader for names
-    const columns: any[] = [];
+    const columnsForDisplay: Array<{ 
+      name: string, 
+      internalName: string, 
+      type: 'dimension' | 'metric' | 'added', 
+      originalIndex?: number,
+      value?: any, 
+      props?: any, 
+      className?: string,
+      metricHeaders?: any[]
+    }> = [];
+
+    const findAndAddDimension = (internalName: string, displayName?: string, props?: object) => {
+      const index = dimensionHeaders.findIndex(h => h.name === internalName);
+      if (index !== -1) {
+        columnsForDisplay.push({ 
+          name: formatDisplayColumnHeader(displayName || internalName), 
+          type: 'dimension', 
+          originalIndex: index, 
+          internalName, 
+          ...props 
+        });
+      }
+      return index !== -1;
+    };
+
+    const findAndAddMetric = (internalName: string, displayName?: string, props?: object) => {
+      // Check if metric exists (either original GA metric or one added by processQueryData)
+      const metricExists = metricHeaders.some(h => h.name === internalName);
+      if (metricExists) {
+        const originalIndex = metricHeaders.findIndex(h => h.name === internalName); // Will be -1 if not an original GA metric but added by processQueryData
+        columnsForDisplay.push({ 
+          name: formatDisplayColumnHeader(displayName || internalName), 
+          type: 'metric', 
+          // Use originalIndex if found, otherwise use its index in the (possibly augmented) metricHeaders.
+          // This helps getCellValueForDisplay find the correct metricValue.
+          originalIndex: originalIndex !== -1 ? originalIndex : metricHeaders.findIndex(h => h.name === internalName),
+          internalName, 
+          // metricHeaders, // Removed to avoid potential circular references if logged, and likely not needed by getCellValueForDisplay directly
+          ...props 
+        });
+        return true;
+      }
+      return false;
+    };
     
-    const regionIndex = dimensionHeaders.findIndex(h => h.name === 'region');
-    const sourceMediumIndex = dimensionHeaders.findIndex(h => h.name === 'sourceMedium');
-    const firstUserSourceMediumIndex = dimensionHeaders.findIndex(h => h.name === 'firstUserSourceMedium');
-    const mediumIndex = sourceMediumIndex !== -1 ? sourceMediumIndex : firstUserSourceMediumIndex;
-    
-    const totalUsersIndex = metricHeaders.findIndex(h => h.name === 'totalUsers');
-    const newUsersIndex = metricHeaders.findIndex(h => h.name === 'newUsers');
-    const activeUsersIndex = metricHeaders.findIndex(h => h.name === 'activeUsers');
-    const engagementDurationIndex = metricHeaders.findIndex(h => h.name === 'userEngagementDuration');
-    const tosBenchmarkIndex = metricHeaders.findIndex(h => h.name === 'TOS Benchmark');
-    const passedBenchmarkIndex = metricHeaders.findIndex(h => h.name === 'Passed Benchmark');
-    
-    if (regionIndex !== -1) {
-      columns.push({
-        name: formatDisplayColumnHeader('region'),
-        type: 'dimension',
-        originalIndex: regionIndex
-      });
-    }
-    columns.push({
-      name: formatDisplayColumnHeader('Date Range'),
+    // Property ID and Name are handled by the main render loop using propertyMap
+
+    // --- Dimensions Section ---
+    // 1. Region
+    findAndAddDimension('region');
+    // 2. Date Range (Added as a special column)
+    columnsForDisplay.push({
+      name: formatDisplayColumnHeader('Date Range'), // Use the renamed imported util
+      internalName: 'dateRange',
       type: 'added',
-      value: effectiveDateRange, // UI version with newline
-      className: 'w-1/8 whitespace-pre'
+      value: effectiveDateRange, // This is already newline formatted for UI
+      props: { className: 'whitespace-pre-line' } // Apply whitespace-pre-line for newline
     });
-    if (mediumIndex !== -1) {
-      columns.push({
-        name: formatDisplayColumnHeader('firstUserSourceMedium'), // Or 'sourceMedium'
-        type: 'dimension',
-        originalIndex: mediumIndex,
-        className: 'w-1/3'
-      });
-    }
-    if (totalUsersIndex !== -1) {
-      columns.push({ name: formatDisplayColumnHeader('totalUsers'), type: 'metric', originalIndex: totalUsersIndex });
-    }
-    if (newUsersIndex !== -1) {
-      columns.push({ name: formatDisplayColumnHeader('newUsers'), type: 'metric', originalIndex: newUsersIndex });
-    }
-    if (activeUsersIndex !== -1) {
-      columns.push({ name: formatDisplayColumnHeader('activeUsers'), type: 'metric', originalIndex: activeUsersIndex });
-    }
-    
-    if (engagementDurationIndex !== -1) {
-      columns.push({
-        name: formatDisplayColumnHeader('userEngagementDuration'), 
-        type: 'metric',
-        originalIndex: engagementDurationIndex,
-        originalMetricName: 'userEngagementDuration',
-        metricHeaders: metricHeaders, 
-        className: 'w-1/8'
-      });
-    }
+    // 3. Source / Medium
+    findAndAddDimension('firstUserSourceMedium', 'Source / Medium');
 
-    // Add Total User % if 'totalUsers' metric is available for calculation
-    if (metricHeaders.some(h => h.name === 'totalUsers')) {
-        columns.push({ 
-            name: formatDisplayColumnHeader('Total User %'), 
-            type: 'metric', 
-            // originalIndex is not directly applicable as it's calculated from totalUsers / propertyTotalUsers
-            metricHeaders: metricHeaders 
-        });
-    }
+    // --- Query Results Section ---
+    // 4. Total Users
+    findAndAddMetric('totalUsers');
+    // 5. New Users
+    findAndAddMetric('newUsers');
+    // 6. Active Users
+    findAndAddMetric('activeUsers');
+    // 7. Total User % (internally 'New User %')
+    findAndAddMetric('New User %', 'Total User %');
+    // 8. Average Session Duration per User
+    findAndAddMetric('averageSessionDurationPerUser', 'Average Session Duration Per Active User (s)', { className: 'w-1/8' });
     
-    if (metricHeaders.some(h => h.name === 'TOS Benchmark')) {
-        columns.push({ name: formatDisplayColumnHeader('TOS Benchmark'), type: 'metric', originalIndex: metricHeaders.findIndex(h => h.name === 'TOS Benchmark') });
-    }
-    if (metricHeaders.some(h => h.name === 'Passed Benchmark')) {
-        columns.push({ 
-            name: formatDisplayColumnHeader('Passed Benchmark'), 
-            type: 'metric', 
-            originalIndex: metricHeaders.findIndex(h => h.name === 'Passed Benchmark'),
-            metricHeaders: metricHeaders
-        });
-    }
+    // --- Actionable Data Section ---
+    // 9. TOS Benchmark
+    findAndAddMetric('TOS Benchmark');
+    // 10. Passed TOS Benchmark (internally 'Passed Benchmark' after processing)
+    findAndAddMetric('Passed Benchmark', 'Passed TOS Benchmark');
+    // 11. User % Benchmark
+    findAndAddMetric('User % Benchmark');
+    // 12. Passed Geo Benchmark
+    findAndAddMetric('Passed Geo Benchmark');
+    // 13. Total User Benchmark
+    findAndAddMetric('Total User Benchmark');
+    // 14. Passed Total User Benchmark
+    findAndAddMetric('Passed Total User Benchmark');
 
-    // Add remaining dimension/metric headers not explicitly handled
+    // Fallback for any other dimensions/metrics not explicitly handled
+    // This ensures all data is shown, but ideally all expected columns are explicitly placed above.
     dimensionHeaders.forEach((header, index) => {
-      if (index !== regionIndex && index !== mediumIndex && !columns.some(c => c.originalIndex === index && c.type === 'dimension')) {
-        columns.push({ name: formatDisplayColumnHeader(header.name), type: 'dimension', originalIndex: index });
+      if (!columnsForDisplay.some(c => c.internalName === header.name && c.type === 'dimension')) {
+        columnsForDisplay.push({ name: formatDisplayColumnHeader(header.name), type: 'dimension', originalIndex: index, internalName: header.name });
       }
     });
     metricHeaders.forEach((header, index) => {
-      const formattedName = formatDisplayColumnHeader(header.name);
-      // Ensure we don't re-add columns already defined or the old "New User %" related headers by name
-      if (!columns.some(c => (c.originalIndex === index || c.originalMetricName === header.name || c.name === formattedName) && c.type === 'metric') &&
-          header.name !== 'newUsers' && formattedName !== 'New User %' && header.name !== 'New User %') { // Explicitly skip 'newUsers' and its formatted versions
-        columns.push({ name: formattedName, type: 'metric', originalIndex: index, originalMetricName: header.name });
+      if (!columnsForDisplay.some(c => c.internalName === header.name && c.type === 'metric')) {
+        // Pass the full metricHeaders array for context if getCellValueForDisplay needs it for unhandled metrics
+        columnsForDisplay.push({ name: formatDisplayColumnHeader(header.name), type: 'metric', originalIndex: index, internalName: header.name, metricHeaders });
       }
     });
-    return columns;
+    
+    return columnsForDisplay;
   };
 
   // Function to get cell value for display (UI specific)
   const getCellValueForDisplay = (row: any, column: any, currentPropertyTosBenchmark?: number, propertyTotalTotalUsers?: number) => {
-    // ... this is the original getCellValue logic from QueryResults.tsx ...
-    // It uses formatDisplayColumnValue and handles JSX for 'Passed Benchmark'
     if (column.type === 'added') {
-      return column.value; // Already formatted for display (e.g. date with newline)
+      return column.value;
     }
     if (column.type === 'dimension') {
       if (typeof column.originalIndex === 'number' && column.originalIndex >= 0 && column.originalIndex < row.dimensionValues.length) {
@@ -402,88 +413,48 @@ const QueryResults: React.FC<QueryResultsProps> = ({
       return '';
     }
     if (column.type === 'metric') {
-        if (typeof column.originalIndex !== 'number' || column.originalIndex < 0 || column.originalIndex >= row.metricValues.length) {
-            // Exception for calculated metrics that don't have an originalIndex from source data but are defined in getOrderedColumnsForDisplay
-            if (column.name === formatDisplayColumnHeader('Total User %')) { /* calc below */ }
-            else if (column.name === formatDisplayColumnHeader('Passed Benchmark')) { /* calc below */ }
-            else if (column.name === formatDisplayColumnHeader('TOS Benchmark')) { /* calc below */ }
-            else { return ''; }
+        // The originalIndex for metrics added by processQueryData will point to their position in the *extended* metricValues array.
+        // analyticsActions.ts ensures values are pushed in the same order as headers are added.
+        const metricValueObject = (typeof column.originalIndex === 'number' && column.originalIndex >= 0 && column.originalIndex < row.metricValues.length)
+                                 ? row.metricValues[column.originalIndex]
+                                 : undefined;
+        let value = metricValueObject ? metricValueObject.value : undefined;
+
+        // const metricDisplayName = column.name; // This is the display name from getOrderedColumnsForDisplay
+        // Use column.internalName for logic, column.name for display formatting switch if needed
+        const internalMetricName = column.internalName;
+
+        // Handle specific column formatting or calculations for display
+        if (internalMetricName === 'averageSessionDurationPerUser') {
+            // The 'value' here is already the pre-calculated average session duration per user (as a string)
+            // from row.metricValues[column.originalIndex].value, where originalIndex now correctly points to 
+            // the 'averageSessionDurationPerUser' metric header from the server/processQueryData.
+            if (value !== undefined && !isNaN(Number(value))) {
+                 return formatDurationForDisplay(Number(value)); // Format the direct value
+            }
+            return formatDurationForDisplay(0); // Fallback if value is not a number
         }
         
-        const metricDisplayName = column.name;
-        let value = (typeof column.originalIndex === 'number' && row.metricValues[column.originalIndex]) ? row.metricValues[column.originalIndex].value : undefined;
+        if (internalMetricName === 'New User %') { // internal name for 'Total User %'
+             if (value !== undefined) {
+                return formatColumnValue(String(value), internalMetricName); // Use internalMetricName for formatColumnValue logic switch
+             }
+             return formatColumnValue('0', internalMetricName);
+        }
 
-        if (metricDisplayName === formatDisplayColumnHeader('userEngagementDuration')) {
-            const engagementDurationSumIndex = column.metricHeaders?.findIndex((h: { name: string }) => h.name === 'userEngagementDuration');
-            const activeUsersIndex = column.metricHeaders?.findIndex((h: { name: string }) => h.name === 'activeUsers');
-            if (engagementDurationSumIndex !== -1 && activeUsersIndex !== -1 && 
-                engagementDurationSumIndex < row.metricValues.length && activeUsersIndex < row.metricValues.length) {
-                const engagementDuration = Number(row.metricValues[engagementDurationSumIndex]?.value || 0);
-                const activeUsers = Number(row.metricValues[activeUsersIndex]?.value || 0);
-                const avgDurationPerUser = activeUsers > 0 ? Math.round(engagementDuration / activeUsers) : 0;
-                return formatDurationForDisplay(avgDurationPerUser); 
-            }
-            return formatDurationForDisplay(0);
-        }
-        if (metricDisplayName === formatDisplayColumnHeader('Total User %')) {
-            const totalUsersIdx = column.metricHeaders?.findIndex((h: { name: string }) => h.name === 'totalUsers');
-            
-            if (totalUsersIdx !== -1 && totalUsersIdx < row.metricValues.length && propertyTotalTotalUsers !== undefined && propertyTotalTotalUsers > 0) {
-                const rowTotalUsers = Number(row.metricValues[totalUsersIdx]?.value || 0);
-                const perc = (rowTotalUsers / propertyTotalTotalUsers) * 100;
-                return formatDisplayColumnValue(perc.toFixed(2), 'Total User %');
-            }
-            return formatDisplayColumnValue('0', 'Total User %');
-        }
-        if (metricDisplayName === formatDisplayColumnHeader('TOS Benchmark')) {
-            // For UI display in individual rows, always show 30s as per user request.
-            // The currentPropertyTosBenchmark is for the entire property, used by total row and passed for context.
-            // If a row itself had a specific benchmark in its data, column.originalIndex would be used.
-            // Otherwise, for UI consistency in rows for this column, we show the fixed 30s.
-            let benchmarkValueToShow = '30'; // Default fixed benchmark for UI row display
-            // If the column has an originalIndex and data for TOS Benchmark exists for the row, prefer that for display
-            if (typeof column.originalIndex === 'number' && 
-                column.originalIndex >= 0 && 
-                column.originalIndex < row.metricValues.length && 
-                row.metricValues[column.originalIndex]?.value !== undefined) {
-                benchmarkValueToShow = row.metricValues[column.originalIndex].value;
-            } else if (value !== undefined && column.name === formatDisplayColumnHeader('TOS Benchmark')){
-                // Fallback if value was derived some other way for this metric (less likely for this specific column)
-                 benchmarkValueToShow = value;
-            } else {
-                // If no specific row data for TOS Benchmark, and UI needs fixed 30s
-                // this ensures "30s" is shown for the TOS Benchmark cell in rows.
-                // The `currentPropertyTosBenchmark` is more for calculating `Passed Benchmark` consistently.
-            }
-            return formatDisplayColumnValue(benchmarkValueToShow, 'TOS Benchmark');
-        }
-        if (metricDisplayName === formatDisplayColumnHeader('Passed Benchmark')) {
-            let avgEng = 0;
-            const engagementDurationSumIndex = column.metricHeaders?.findIndex((h: { name: string }) => h.name === 'userEngagementDuration');
-            const activeUsersForEngIndex = column.metricHeaders?.findIndex((h: { name: string }) => h.name === 'activeUsers');
-
-            if (engagementDurationSumIndex !== undefined && engagementDurationSumIndex !== -1 && 
-                activeUsersForEngIndex !== undefined && activeUsersForEngIndex !== -1 && 
-                engagementDurationSumIndex < row.metricValues.length && activeUsersForEngIndex < row.metricValues.length) {
-                
-                const engagementDuration = Number(row.metricValues[engagementDurationSumIndex]?.value || 0);
-                const activeUsersVal = Number(row.metricValues[activeUsersForEngIndex]?.value || 0);
-                console.log(`[Passed Benchmark Cell] Calculated engagementDuration: ${engagementDuration}, activeUsersVal: ${activeUsersVal}`); // Log parsed numbers
-                avgEng = activeUsersVal > 0 ? Math.round(engagementDuration / activeUsersVal) : 0;
-            }
-            
-            const uiTosBenchmarkStandard = 30;
-            console.log("[Passed Benchmark Cell] TESTING CONSOLE LOG FOR TOS PASS", avgEng, uiTosBenchmarkStandard); // Your existing log
-            const passed = avgEng > uiTosBenchmarkStandard;
-            const uiText = passed ? 'TRUE' : 'FALSE'; // Display TRUE/FALSE
+        if (internalMetricName === 'Passed Benchmark' || internalMetricName === 'Passed Geo Benchmark' || internalMetricName === 'Passed Total User Benchmark') {
+            const passed = value === 'TRUE'; // Adjusted to check for uppercase 'TRUE' string
+            const uiText = passed ? 'TRUE' : 'FALSE';
             return (
                 <span className={`px-2 py-1 rounded ${passed ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`} style={{float: 'right'}}>
                     {uiText}
                 </span>
             );
         }
+        
         if (value !== undefined) {
-             return formatDisplayColumnValue(String(value), column.originalMetricName || metricDisplayName);
+             // For 'TOS Benchmark', 'User % Benchmark', 'Total User Benchmark' and other direct metrics
+             return formatColumnValue(String(value), internalMetricName);
         }
         return '';
     }
@@ -492,45 +463,35 @@ const QueryResults: React.FC<QueryResultsProps> = ({
 
   // Calculates totals for display (UI specific)
   const calculatePropertyTotalsForDisplay = (singleResult: AnalyticsQueryResponse) => {
-    // ... this is the original calculatePropertyTotals logic ...
-    // It should now define its own default TOS benchmark or get it appropriately for display
+    const USER_PERCENT_BENCHMARK_VALUE_CONST = 60; // Defined here for UI totals
+    const TOTAL_USER_BENCHMARK_VALUE_CONST = 5;   // Defined here for UI totals
     const DEFAULT_TOS_BENCHMARK_DISPLAY = 30;
-    let totals = {
-      totalUsers: 0,
-      newUsers: 0,
-      activeUsers: 0,
-      engagementDurationSum: 0,
-      rowCount: 0,
-      averageEngagementDuration: 0,
-      newUserPercent: 0,
-      totalUserPercentAgg: 0,
-      tosBenchmark: DEFAULT_TOS_BENCHMARK_DISPLAY, 
-      passedBenchmark: false
-    };
-    if (!singleResult || !singleResult.rows || singleResult.rows.length === 0) return totals;
 
-    const metricIndices = {
-      totalUsers: singleResult.metricHeaders.findIndex(h => h.name === 'totalUsers'),
-      newUsers: singleResult.metricHeaders.findIndex(h => h.name === 'newUsers'),
-      activeUsers: singleResult.metricHeaders.findIndex(h => h.name === 'activeUsers'),
-      userEngagementDuration: singleResult.metricHeaders.findIndex(h => h.name === 'userEngagementDuration'),
-      // If 'TOS Benchmark' comes from data for display, find its index
-      tosBenchmarkData: singleResult.metricHeaders.findIndex(h => h.name === 'TOS Benchmark') 
+    // Value for the "Total User %" column in the total row display
+    const totalUserPercentDisplayForTotalRow = '-'; // Or empty string ''
+
+    // Property's overall new user percentage, used for "Passed Geo Benchmark" in the total row
+    const propertyOverallNewUserPercent = singleResult.totalPercentageOfNewUsers || 0;
+
+    let totals = {
+      totalUsers: singleResult.totalUsers || 0,
+      newUsers: singleResult.totalNewUsers || 0,
+      activeUsers: singleResult.totalActiveUsers || 0,
+      averageEngagementDuration: singleResult.totalAverageSessionDurationPerUser || 0,
+      totalUserPercentForDisplayInTotalRow: totalUserPercentDisplayForTotalRow,
+      tosBenchmark: DEFAULT_TOS_BENCHMARK_DISPLAY,
+      passedBenchmark: false, // For "Passed TOS Benchmark"
+      userPercentBenchmark: USER_PERCENT_BENCHMARK_VALUE_CONST, // New
+      passedGeoBenchmark: false, // New, will be calculated below
+      totalUserBenchmark: TOTAL_USER_BENCHMARK_VALUE_CONST, // New
+      passedTotalUserBenchmark: false // New
     };
-    totals.rowCount = singleResult.rows.length;
-    singleResult.rows.forEach(row => {
-      if (metricIndices.totalUsers !== -1) totals.totalUsers += Number(row.metricValues[metricIndices.totalUsers]?.value || 0);
-      if (metricIndices.newUsers !== -1) totals.newUsers += Number(row.metricValues[metricIndices.newUsers]?.value || 0);
-      if (metricIndices.activeUsers !== -1) totals.activeUsers += Number(row.metricValues[metricIndices.activeUsers]?.value || 0);
-      if (metricIndices.userEngagementDuration !== -1) totals.engagementDurationSum += Number(row.metricValues[metricIndices.userEngagementDuration]?.value || 0);
-      
-      if (metricIndices.tosBenchmarkData !== -1 && row.metricValues[metricIndices.tosBenchmarkData]?.value !== undefined && totals.tosBenchmark === DEFAULT_TOS_BENCHMARK_DISPLAY) {
-        totals.tosBenchmark = Number(row.metricValues[metricIndices.tosBenchmarkData].value || DEFAULT_TOS_BENCHMARK_DISPLAY);
-      }
-    });
-    totals.averageEngagementDuration = totals.activeUsers > 0 ? Math.round(totals.engagementDurationSum / totals.activeUsers) : 0;
-    totals.newUserPercent = totals.activeUsers > 0 ? (totals.newUsers / totals.activeUsers) * 100 : 0;
-    totals.passedBenchmark = totals.averageEngagementDuration > totals.tosBenchmark;
+
+    totals.passedBenchmark = totals.averageEngagementDuration >= totals.tosBenchmark;
+    // Calculate "Passed Geo Benchmark" for the total row using the property's overall new user percentage
+    totals.passedGeoBenchmark = propertyOverallNewUserPercent >= totals.userPercentBenchmark;
+    totals.passedTotalUserBenchmark = totals.totalUsers >= totals.totalUserBenchmark; // New
+
     return totals;
   };
 
@@ -560,6 +521,7 @@ const QueryResults: React.FC<QueryResultsProps> = ({
       </div>
       
       {results.results && results.results.map((singleResult, index) => {
+        console.log('[QueryResults] Processing singleResult for display:', JSON.parse(JSON.stringify(singleResult))); // Deep copy for logging
         const totals = calculatePropertyTotalsForDisplay(singleResult);
         const orderedDisplayColumns = getOrderedColumnsForDisplay(singleResult.dimensionHeaders, singleResult.metricHeaders);
 
@@ -569,7 +531,7 @@ const QueryResults: React.FC<QueryResultsProps> = ({
               <span>Property: {propertyMap[singleResult.propertyId] || propertyMap[singleResult.propertyId.replace('properties/', '')] || singleResult.propertyId}</span>
               <span className="text-sm text-gray-500 ml-2">({singleResult.propertyId})</span>
               <span className={`ml-4 text-sm px-2 py-1 rounded-full ${totals.passedBenchmark ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                {totals.passedBenchmark ? 'PASSED BENCHMARK' : 'FAILED BENCHMARK'}
+                {totals.passedBenchmark ? 'PASSED TOS BENCHMARK' : 'FAILED TOS BENCHMARK'}
               </span>
             </h3>
             {singleResult.rows && singleResult.rows.length > 0 ? (
@@ -607,7 +569,7 @@ const QueryResults: React.FC<QueryResultsProps> = ({
                               case formatDisplayColumnHeader('activeUsers'):
                                 cellValue = totals.activeUsers.toString();
                                 break;
-                              case formatDisplayColumnHeader('userEngagementDuration'):
+                              case formatDisplayColumnHeader('averageSessionDurationPerUser'):
                                 cellValue = formatDurationForDisplay(totals.averageEngagementDuration);
                                 break;
                               case formatDisplayColumnHeader('TOS Benchmark'):
@@ -627,8 +589,47 @@ const QueryResults: React.FC<QueryResultsProps> = ({
                                     </span>
                                   </td>
                                 );
+                              case formatDisplayColumnHeader('User % Benchmark'):
+                                cellValue = formatColumnValue(totals.userPercentBenchmark.toString(), 'User % Benchmark');
+                                break;
+                              case formatDisplayColumnHeader('Passed Geo Benchmark'):
+                                const passedGeoStatus = totals.passedGeoBenchmark.toString();
+                                const formattedGeoValue = formatColumnValue(passedGeoStatus, 'Passed Geo Benchmark');
+                                const isGeoPassed = formattedGeoValue === 'TRUE';
+                                return (
+                                  <td 
+                                    key={`total-cell-${index}-${colIndex}`} 
+                                    className={`py-2 px-4 border text-sm text-right ${column.className || ''}`}
+                                  >
+                                    <span className={`px-2 py-1 rounded ${isGeoPassed ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                      {isGeoPassed ? 'TRUE' : 'FALSE'}
+                                    </span>
+                                  </td>
+                                );
+                              case formatDisplayColumnHeader('Total User Benchmark'):
+                                cellValue = formatColumnValue(totals.totalUserBenchmark.toString(), 'Total User Benchmark');
+                                break;
+                              case formatDisplayColumnHeader('Passed Total User Benchmark'):
+                                const passedTotalUserStatus = totals.passedTotalUserBenchmark.toString();
+                                const formattedTotalUserValue = formatColumnValue(passedTotalUserStatus, 'Passed Total User Benchmark');
+                                const isTotalUserPassed = formattedTotalUserValue === 'TRUE';
+                                return (
+                                  <td 
+                                    key={`total-cell-${index}-${colIndex}`} 
+                                    className={`py-2 px-4 border text-sm text-right ${column.className || ''}`}
+                                  >
+                                    <span className={`px-2 py-1 rounded ${isTotalUserPassed ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                      {isTotalUserPassed ? 'TRUE' : 'FALSE'}
+                                    </span>
+                                  </td>
+                                );
                               default:
-                                cellValue = '';
+                                // For "Total User %" in the total row, set to empty or N/A
+                                if (column.name === formatDisplayColumnHeader('New User %')) { // 'New User %' is internal name for 'Total User %'
+                                   cellValue = totals.totalUserPercentForDisplayInTotalRow;
+                                } else {
+                                   cellValue = '';
+                                }
                             }
                           }
                           return (

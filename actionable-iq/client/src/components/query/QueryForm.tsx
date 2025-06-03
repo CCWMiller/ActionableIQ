@@ -8,6 +8,7 @@ import { analyticsApi } from '../../services/api/analyticsApi';
 import { reportService } from '../../services/api/reportService';
 import { generateStandardCsvReportData } from '../../utils/csvUtils';
 import type { AnalyticsQueryResponse } from '../../types/analytics.types';
+import { processQueryData } from '../../store/actions/analyticsActions';
 
 interface QueryFormProps {
   properties: AnalyticsProperty[];
@@ -113,7 +114,7 @@ const QueryForm: React.FC<QueryFormProps> = ({
   const [sourceFilter, setSourceFilter] = useState<string>('client-command / email');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
-  const [topStatesCount, setTopStatesCount] = useState<number>(10);
+  const [topStatesCount, setTopStatesCount] = useState<number>(1);
   const [isBenchmarkLoading, setIsBenchmarkLoading] = useState<boolean>(false);
   const [benchmarkStatus, setBenchmarkStatus] = useState<string>('');
   const [benchmarkProgress, setBenchmarkProgress] = useState<number>(0);
@@ -156,7 +157,7 @@ const QueryForm: React.FC<QueryFormProps> = ({
       
       setBenchmarkStatus(`Processing ${BENCHMARK_PROPERTY_IDS.length} properties in ${totalBatches} batches...`);
       
-      const allResults: BenchmarkResult[] = [];
+      const allResults: AnalyticsQueryResponse[] = [];
       for (let i = 0; i < propertyIdBatches.length; i++) {
         const batch = propertyIdBatches[i];
         const batchNumber = i + 1;
@@ -180,13 +181,7 @@ const QueryForm: React.FC<QueryFormProps> = ({
         const batchResponse = await analyticsApi.runQuery(batchQuery, auth.token, auth.idToken || undefined);
         
         if (batchResponse.results && batchResponse.results.length > 0) {
-          allResults.push(...batchResponse.results.map(r => ({
-            propertyId: r.propertyId,
-            dimensionHeaders: r.dimensionHeaders,
-            metricHeaders: r.metricHeaders,
-            rows: r.rows,
-            rowCount: r.rowCount
-          } as BenchmarkResult)));
+          allResults.push(...batchResponse.results);
         }
         
         if (batchResponse.errors && batchResponse.errors.length > 0) {
@@ -194,6 +189,10 @@ const QueryForm: React.FC<QueryFormProps> = ({
         }
       }
       
+      setBenchmarkStatus('Processing results for report...');
+      // Process all collected results to add benchmark columns and correctly calculated Total User %
+      const processedBenchmarkResults = allResults.map(result => processQueryData(result));
+
       setBenchmarkStatus('Generating report...');
       setBenchmarkProgress(80);
 
@@ -220,8 +219,8 @@ const QueryForm: React.FC<QueryFormProps> = ({
       const dateRangeForCsv = `${startDate} - ${endDate}`;
 
       const csvData = generateStandardCsvReportData(
-        allResults as AnalyticsQueryResponse[], 
-        propertyNameRecord, // Pass the Record<string, string>
+        processedBenchmarkResults,
+        propertyNameRecord,
         dateRangeForCsv, 
         TOS_BENCHMARK_VALUE
       );
@@ -321,7 +320,7 @@ const QueryForm: React.FC<QueryFormProps> = ({
       
       <form onSubmit={handleSubmit}>
         <div className="space-y-6">
-          {/* Property IDs */}
+          {/* Property IDs - Stays near the top */}
           <PropertySelect 
             properties={properties}
             selectedIds={propertyIds}
@@ -330,7 +329,7 @@ const QueryForm: React.FC<QueryFormProps> = ({
             error={propertiesError}
             onRunBenchmarkReport={handleRunBenchmarkReport}
           />
-          
+
           {/* Source/Medium */}
           <div>
             <label htmlFor="sourceFilter" className="block text-sm font-medium text-gray-700 mb-1">
@@ -372,14 +371,22 @@ const QueryForm: React.FC<QueryFormProps> = ({
             />
           </div>
           
-          {/* Submit Button */}
-          <div>
+          {/* NEW Button Group: Auto Run and Manual Run */}
+          <div className="flex space-x-2 pt-2"> {/* pt-2 for a little spacing above buttons */}
+            <button
+              type="button" // Important: type="button" to not submit the form
+              onClick={handleRunBenchmarkReport}
+              disabled={isBenchmarkLoading || isSubmitting} // Disable if benchmark or normal submit is running
+              className="w-1/2 py-2 px-4 bg-green-600 hover:bg-green-700 text-white font-medium rounded focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-green-400 whitespace-nowrap"
+            >
+              {isBenchmarkLoading ? 'Loading...' : 'Auto Run'}
+            </button>
             <button
               type="submit"
               disabled={isSubmitting || isBenchmarkLoading}
-              className="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-indigo-400"
+              className="w-1/2 py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-indigo-400 whitespace-nowrap"
             >
-              {isSubmitting ? 'Loading...' : 'Submit Query'}
+              {isSubmitting ? 'Loading...' : 'Manual Run'}
             </button>
           </div>
         </div>

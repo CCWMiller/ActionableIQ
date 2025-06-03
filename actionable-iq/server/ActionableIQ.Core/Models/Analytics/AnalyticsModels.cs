@@ -122,6 +122,41 @@ namespace ActionableIQ.Core.Models.Analytics
         /// The Property ID this response corresponds to.
         /// </summary>
         public string PropertyId { get; set; } = string.Empty;
+
+        /// <summary>
+        /// The display name of the property.
+        /// </summary>
+        public string PropertyName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// The date range for the report.
+        /// </summary>
+        public string DateRange { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Total users for the property.
+        /// </summary>
+        public long TotalUsers { get; set; }
+
+        /// <summary>
+        /// Total new users for the property.
+        /// </summary>
+        public long TotalNewUsers { get; set; }
+
+        /// <summary>
+        /// Total active users for the property.
+        /// </summary>
+        public long TotalActiveUsers { get; set; }
+
+        /// <summary>
+        /// Overall average session duration per user for the property.
+        /// </summary>
+        public double TotalAverageSessionDurationPerUser { get; set; }
+
+        /// <summary>
+        /// Overall percentage of new users for the property.
+        /// </summary>
+        public double TotalPercentageOfNewUsers { get; set; }
         
         /// <summary>
         /// Query metadata including request info
@@ -335,4 +370,4 @@ namespace ActionableIQ.Core.Models.Analytics
         /// </summary>
         public string ErrorMessage { get; set; } = string.Empty;
     }
-} 
+}

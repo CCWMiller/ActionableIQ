@@ -47,16 +47,6 @@ const PropertySelect: React.FC<PropertySelectProps> = ({
           onChange={handleManualInput}
           className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
-        
-        {onRunBenchmarkReport && (
-          <button
-            type="button"
-            onClick={onRunBenchmarkReport}
-            className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded focus:outline-none focus:ring-2 focus:ring-green-500 whitespace-nowrap"
-          >
-            Run All Properties Query
-          </button>
-        )}
       </div>
       
       {isLoading ? (

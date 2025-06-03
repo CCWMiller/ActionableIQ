@@ -18,17 +18,20 @@ namespace ActionableIQ.Api.Controllers
         private readonly IGoogleAnalyticsAdminService _adminService;
         private readonly IGoogleAnalyticsDataService _dataService;
         private readonly IGoogleAnalyticsService _analyticsService;
+        private readonly IGoogleAnalyticsReportService _googleAnalyticsReportService;
         private readonly ILogger<AnalyticsController> _logger;
 
         public AnalyticsController(
             IGoogleAnalyticsAdminService adminService,
             IGoogleAnalyticsDataService dataService,
             IGoogleAnalyticsService analyticsService,
+            IGoogleAnalyticsReportService googleAnalyticsReportService,
             ILogger<AnalyticsController> logger)
         {
             _adminService = adminService;
             _dataService = dataService;
             _analyticsService = analyticsService;
+            _googleAnalyticsReportService = googleAnalyticsReportService;
             _logger = logger;
         }
 
@@ -121,62 +124,135 @@ namespace ActionableIQ.Api.Controllers
         }
 
         [HttpPost("query")]
-        public async Task<IActionResult> Query([FromBody] AnalyticsQueryRequest request)
+        public async Task<IActionResult> Query([FromBody] AnalyticsQueryRequest clientRequest)
         {
             try
             {
-                if (request == null)
+                if (clientRequest == null)
                 {
                     return BadRequest("Query request cannot be null");
                 }
 
                 // Validate PropertyIds
-                if (request.PropertyIds == null || !request.PropertyIds.Any())
+                if (clientRequest.PropertyIds == null || !clientRequest.PropertyIds.Any())
                 {
                     _logger.LogWarning("Query request received with no Property IDs.");
                     return BadRequest("PropertyIds list cannot be null or empty.");
                 }
-                if (request.PropertyIds.Count > 50)
+                if (clientRequest.PropertyIds.Count > 50)
                 {
-                    _logger.LogWarning("Query request received with {Count} property IDs, exceeding the limit of 50.", request.PropertyIds.Count);
+                    _logger.LogWarning("Query request received with {Count} property IDs, exceeding the limit of 50.", clientRequest.PropertyIds.Count);
                     return BadRequest("Cannot query more than 50 properties at once.");
                 }
 
-                // Basic validation for other required fields (Service layer also validates, but good practice here too)
-                if (string.IsNullOrEmpty(request.SourceMediumFilter) ||
-                    string.IsNullOrEmpty(request.StartDate) || string.IsNullOrEmpty(request.EndDate))
+                // Basic validation for other required fields
+                if (string.IsNullOrEmpty(clientRequest.SourceMediumFilter) ||
+                    string.IsNullOrEmpty(clientRequest.StartDate) || string.IsNullOrEmpty(clientRequest.EndDate))
                 {
+                    // Consider making TopStatesCount required if it's essential for ReportGenerationRequest
                     return BadRequest("Missing required parameters (SourceMediumFilter, StartDate, EndDate).");
                 }
-
-                _logger.LogInformation("Executing multi-property analytics query for {Count} properties.", request.PropertyIds.Count);
-                
-                // Call the updated service method
-                var result = await _analyticsService.RunQueryAsync(request);
-
-                // Log summary of results
-                _logger.LogInformation("Multi-property query completed. Successes: {SuccessCount}, Failures: {FailureCount}", 
-                    result.Results?.Count ?? 0, 
-                    result.Errors?.Count ?? 0);
-
-                // Optionally log details about errors
-                if (result.Errors != null && result.Errors.Any())
+                 if (!DateTime.TryParse(clientRequest.StartDate, out var startDate) || !DateTime.TryParse(clientRequest.EndDate, out var endDate))
                 {
-                    foreach (var error in result.Errors)
+                    return BadRequest("Invalid date format for StartDate or EndDate. Use YYYY-MM-DD.");
+                }
+
+                _logger.LogInformation("Executing analytics report generation for {Count} properties.", clientRequest.PropertyIds.Count);
+
+                var reportGenerationRequest = new ReportGenerationRequest
+                {
+                    PropertyIds = clientRequest.PropertyIds,
+                    StartDate = startDate,
+                    EndDate = endDate,
+                    SourceMediumFilter = clientRequest.SourceMediumFilter,
+                    TopStatesCount = (clientRequest.TopStatesCount > 0 ? clientRequest.TopStatesCount : 10),
+                    Dimensions = clientRequest.Dimensions ?? new List<string>()
+                };
+
+                IDictionary<string, PropertyReport> propertyReportsDictionary = await _googleAnalyticsReportService.GenerateReportsAsync(reportGenerationRequest);
+
+                var clientResults = new List<ActionableIQ.Core.Models.Analytics.AnalyticsQueryResponse>();
+                var clientErrors = new List<ActionableIQ.Core.Models.Analytics.AnalyticsQueryError>();
+
+                foreach (var kvp in propertyReportsDictionary)
+                {
+                    var propertyId = kvp.Key;
+                    var report = kvp.Value;
+
+                    if (report != null)
                     {
-                        _logger.LogWarning("Query failed for Property ID {PropertyId}: {ErrorMessage}", error.PropertyId, error.ErrorMessage);
+                        var clientQueryResponse = new ActionableIQ.Core.Models.Analytics.AnalyticsQueryResponse
+                        {
+                            PropertyId = report.PropertyId,
+                            PropertyName = report.PropertyName,
+                            DateRange = $"{report.DateRange.StartDate} - {report.DateRange.EndDate}",
+                            TotalUsers = report.TotalUsers,
+                            TotalNewUsers = report.TotalNewUsers,
+                            TotalActiveUsers = report.TotalActiveUsers,
+                            TotalAverageSessionDurationPerUser = report.TotalAverageSessionDurationPerUser,
+                            TotalPercentageOfNewUsers = report.TotalPercentageOfNewUsers,
+
+                            DimensionHeaders = report.DimensionHeaders ?? new List<ActionableIQ.Core.Models.Analytics.DimensionHeader>(),
+                            MetricHeaders = new List<ActionableIQ.Core.Models.Analytics.MetricHeader>
+                            {
+                                new ActionableIQ.Core.Models.Analytics.MetricHeader { Name = "totalUsers", Type = "INTEGER" },
+                                new ActionableIQ.Core.Models.Analytics.MetricHeader { Name = "newUsers", Type = "INTEGER" },
+                                new ActionableIQ.Core.Models.Analytics.MetricHeader { Name = "activeUsers", Type = "INTEGER" },
+                                new ActionableIQ.Core.Models.Analytics.MetricHeader { Name = "averageSessionDurationPerUser", Type = "DECIMAL" },
+                            },
+                            Rows = report.Regions?.Select(region => new ActionableIQ.Core.Models.Analytics.AnalyticsRow
+                            {
+                                DimensionValues = region.DimensionValues ?? new List<ActionableIQ.Core.Models.Analytics.AnalyticsDimensionValue>(),
+                                MetricValues = new List<ActionableIQ.Core.Models.Analytics.AnalyticsMetricValue>
+                                {
+                                    new ActionableIQ.Core.Models.Analytics.AnalyticsMetricValue { Value = region.Users.ToString() },
+                                    new ActionableIQ.Core.Models.Analytics.AnalyticsMetricValue { Value = region.NewUsers.ToString() },
+                                    new ActionableIQ.Core.Models.Analytics.AnalyticsMetricValue { Value = region.ActiveUsers.ToString() },
+                                    new ActionableIQ.Core.Models.Analytics.AnalyticsMetricValue { Value = region.AverageSessionDurationPerUser.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) },
+                                }
+                            }).ToList() ?? new List<ActionableIQ.Core.Models.Analytics.AnalyticsRow>(),
+                            RowCount = report.Regions?.Count ?? 0,
+                            Metadata = new ActionableIQ.Core.Models.Analytics.QueryMetadata
+                            {
+                                DataLastRefreshed = DateTime.UtcNow,
+                                QueryTime = DateTime.UtcNow
+                            }
+                        };
+                        clientResults.Add(clientQueryResponse);
+                    }
+                    else
+                    {
+                        // Handle case where a report for a propertyId might be null (e.g., an error occurred for that specific property)
+                        // The IGoogleAnalyticsReportService might handle this internally by not adding to dictionary or returning a specific error structure.
+                        // For now, we'll assume GenerateReportsAsync filters out errored properties or we handle errors if the service returns them.
+                         _logger.LogWarning("No report data returned from service for property ID {PropertyId}. It might have failed.", propertyId);
+                        clientErrors.Add(new ActionableIQ.Core.Models.Analytics.AnalyticsQueryError { PropertyId = propertyId, ErrorMessage = "Failed to generate report for this property." });
                     }
                 }
                 
-                // Return the combined results and errors
-                return Ok(result);
+                var multiQueryResponse = new AnalyticsMultiQueryResponse
+                {
+                    Results = clientResults,
+                    Errors = clientErrors
+                };
+
+                _logger.LogInformation("Analytics report generation completed. Successes: {SuccessCount}, Failures: {FailureCount}", 
+                    multiQueryResponse.Results?.Count ?? 0, 
+                    multiQueryResponse.Errors?.Count ?? 0);
+                
+                return Ok(multiQueryResponse);
             }
             catch (Exception ex)
             {
-                // Log the error with potentially multiple property IDs
-                _logger.LogError(ex, "Error executing multi-property analytics query for properties [{PropertyIds}]", 
-                    string.Join(", ", request?.PropertyIds ?? new List<string>()));
-                return StatusCode(500, "Error executing analytics query");
+                _logger.LogError(ex, "Error executing analytics report generation for properties [{PropertyIds}]", 
+                    string.Join(", ", clientRequest?.PropertyIds ?? new List<string>()));
+                // Return a generic error or a more structured one if desired
+                var errorResponse = new AnalyticsMultiQueryResponse {
+                    Results = new List<ActionableIQ.Core.Models.Analytics.AnalyticsQueryResponse>(),
+                    Errors = clientRequest?.PropertyIds.Select(pid => new ActionableIQ.Core.Models.Analytics.AnalyticsQueryError { PropertyId = pid, ErrorMessage = ex.Message }).ToList() 
+                             ?? new List<ActionableIQ.Core.Models.Analytics.AnalyticsQueryError>{ new ActionableIQ.Core.Models.Analytics.AnalyticsQueryError { PropertyId = "N/A", ErrorMessage = ex.Message } }
+                };
+                return StatusCode(500, errorResponse);
             }
         }
 

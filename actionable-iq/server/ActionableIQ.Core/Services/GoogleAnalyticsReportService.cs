@@ -93,7 +93,8 @@ namespace ActionableIQ.Core.Services
                 var (source, medium) = request.GetSourceMedium();
                 var gaDateRange = CreateDateRange(request);
 
-                var baseRequest = new RunReportRequest
+                // --- Start: Build a single comprehensive RunReportRequest ---
+                var gaRequest = new RunReportRequest
                 {
                     Property = $"properties/{propertyId}",
                     DateRanges = { gaDateRange },
@@ -110,11 +111,159 @@ namespace ActionableIQ.Core.Services
                     }
                 };
 
-                // Get total metrics
-                var totalMetrics = await GetTotalMetricsAsync(baseRequest);
+                // Add Dimensions from ReportGenerationRequest
+                if (request.Dimensions != null)
+                {
+                    foreach (var dimName in request.Dimensions)
+                    {
+                        if (!string.IsNullOrWhiteSpace(dimName)) {
+                            gaRequest.Dimensions.Add(new Dimension { Name = dimName });
+                        }
+                    }
+                }
+                // Ensure region is added if not present, as much logic depends on it, 
+                // or make this configurable if region is truly optional.
+                if (!gaRequest.Dimensions.Any(d => d.Name == "region"))
+                {
+                   // gaRequest.Dimensions.Insert(0, new Dimension { Name = "region" }); // Or decide if truly optional
+                }
 
-                // Get regional data
-                var regionData = await GetRegionalDataAsync(baseRequest, request.TopStatesCount);
+                // Add Metrics (consistent with previous separate calls)
+                gaRequest.Metrics.AddRange(new[]
+                {
+                    new Metric { Name = "totalUsers" },
+                    new Metric { Name = "newUsers" },
+                    new Metric { Name = "activeUsers" },
+                    new Metric { Name = "userEngagementDuration" }
+                });
+
+                // Add Ordering and Limit
+                // If 'region' is a requested dimension and TopStatesCount is specified, order by totalUsers and limit.
+                // Otherwise, use a more general limit or different ordering if needed.
+                if (request.Dimensions != null && request.Dimensions.Contains("region") && request.TopStatesCount > 0)
+                {
+                    gaRequest.OrderBys.Add(new OrderBy
+                    {
+                        Metric = new OrderBy.Types.MetricOrderBy { MetricName = "totalUsers" },
+                        Desc = true
+                    });
+                    gaRequest.Limit = request.TopStatesCount;
+                }
+                else
+                {
+                    gaRequest.Limit = 1000; // Default limit if not ordering by region/top states
+                }
+                
+                // Request totals for metrics for the property-wide summary
+                gaRequest.MetricAggregations.Add(MetricAggregation.Total);
+
+                _logger.LogInformation(
+                    "Sending combined GA4 report request for property {PropertyId} with {DimensionCount} dimensions and {MetricCount} metrics. Filter: Source={Source}, Medium={Medium}. Limit: {Limit}",
+                    gaRequest.Property,
+                    gaRequest.Dimensions.Count,
+                    gaRequest.Metrics.Count,
+                    source ?? "null",
+                    medium ?? "null",
+                    gaRequest.Limit);
+
+                // --- Make the single API call --- 
+                var response = await _client.RunReportAsync(gaRequest);
+                _logger.LogInformation("Received combined GA4 report response for {PropertyId}: RowCount={RowCount}", propertyId, response.RowCount);
+
+                // --- End: Build a single comprehensive RunReportRequest ---
+
+                // --- Start: Process the response --- 
+                var reportDimensionHeaders = new List<ActionableIQ.Core.Models.Analytics.DimensionHeader>();
+                if (response.DimensionHeaders != null)
+                {
+                    foreach (var gaDimensionHeader in response.DimensionHeaders)
+                    {
+                        reportDimensionHeaders.Add(new ActionableIQ.Core.Models.Analytics.DimensionHeader { Name = gaDimensionHeader.Name });
+                    }
+                }
+
+                // Populate Totals from response.Totals (first total group, first row)
+                long totalUsers = 0;
+                long totalNewUsers = 0;
+                long totalActiveUsers = 0;
+                long totalUserEngagementDuration = 0; // In milliseconds from GA
+
+                if (response.Totals.Any() && response.Totals[0].MetricValues.Any())
+                {
+                    var totalsRow = response.Totals[0]; // Assuming one total group
+                    for (int i = 0; i < response.MetricHeaders.Count; i++)
+                    {
+                        var metricHeaderName = response.MetricHeaders[i].Name;
+                        var metricValueStr = totalsRow.MetricValues[i].Value;
+                        if (long.TryParse(metricValueStr, out long val)){
+                            switch (metricHeaderName)
+                            {
+                                case "totalUsers": totalUsers = val; break;
+                                case "newUsers": totalNewUsers = val; break;
+                                case "activeUsers": totalActiveUsers = val; break;
+                                case "userEngagementDuration": totalUserEngagementDuration = val; break;
+                            }
+                        }
+                    }
+                }
+                double totalAverageSessionDurationPerUser = (totalActiveUsers > 0) ? (totalUserEngagementDuration / 1000.0 / (double)totalActiveUsers) : 0.0;
+                double totalPercentageOfNewUsers = (totalUsers > 0) ? ((double)totalNewUsers / (double)totalUsers) * 100 : 0.0;
+
+                // Regions will be populated next
+                var reportRegions = new List<RegionData>(); 
+
+                if (response.Rows != null)
+                {
+                    foreach (var gaRow in response.Rows)
+                    {
+                        var regionDimensionValues = new List<AnalyticsDimensionValue>();
+                        string stateValue = null; // To capture the region/state if present
+
+                        for (int i = 0; i < response.DimensionHeaders.Count; i++)
+                        {
+                            var dimHeaderName = response.DimensionHeaders[i].Name;
+                            var dimValue = gaRow.DimensionValues[i].Value;
+                            regionDimensionValues.Add(new AnalyticsDimensionValue { Value = dimValue });
+                            if (dimHeaderName == "region")
+                            {
+                                stateValue = dimValue;
+                            }
+                        }
+
+                        long rowUsers = 0;
+                        long rowNewUsers = 0;
+                        long rowActiveUsers = 0;
+                        long rowUserEngagementDuration = 0;
+
+                        for (int i = 0; i < response.MetricHeaders.Count; i++)
+                        {
+                            var metricHeaderName = response.MetricHeaders[i].Name;
+                            var metricValueStr = gaRow.MetricValues[i].Value;
+                            if(long.TryParse(metricValueStr, out long val)){
+                                switch (metricHeaderName)
+                                {
+                                    case "totalUsers": rowUsers = val; break;
+                                    case "newUsers": rowNewUsers = val; break;
+                                    case "activeUsers": rowActiveUsers = val; break;
+                                    case "userEngagementDuration": rowUserEngagementDuration = val; break;
+                                }
+                            }
+                        }
+
+                        var region = new RegionData
+                        {
+                            DimensionValues = regionDimensionValues,
+                            State = stateValue, // Set if 'region' was a dimension
+                            Users = rowUsers,
+                            NewUsers = rowNewUsers,
+                            ActiveUsers = rowActiveUsers,
+                            UserEngagementDuration = rowUserEngagementDuration, // Store the raw sum for potential future use
+                            AverageSessionDurationPerUser = (rowActiveUsers > 0) ? (rowUserEngagementDuration / 1000.0 / (double)rowActiveUsers) : 0.0,
+                            PercentageOfNewUsers = (rowUsers > 0) ? ((double)rowNewUsers / (double)rowUsers) * 100 : 0.0
+                        };
+                        reportRegions.Add(region);
+                    }
+                }
 
                 var report = new PropertyReport
                 {
@@ -125,17 +274,19 @@ namespace ActionableIQ.Core.Services
                         StartDate = request.StartDate.ToString("yyyy-MM-dd"),
                         EndDate = request.EndDate.ToString("yyyy-MM-dd")
                     },
-                    TotalUsers = totalMetrics.TotalUsers,
-                    TotalNewUsers = totalMetrics.NewUsers,
-                    TotalActiveUsers = totalMetrics.ActiveUsers,
-                    TotalAverageSessionDurationPerUser = totalMetrics.UserEngagementDuration / 1000.0 / (double)totalMetrics.ActiveUsers, // Convert ms to seconds
-                    TotalPercentageOfNewUsers = (totalMetrics.NewUsers / (double)totalMetrics.TotalUsers) * 100,
-                    Regions = regionData
+                    DimensionHeaders = reportDimensionHeaders, 
+                    Regions = reportRegions,
+                    TotalUsers = totalUsers,
+                    TotalNewUsers = totalNewUsers,
+                    TotalActiveUsers = totalActiveUsers,
+                    TotalAverageSessionDurationPerUser = totalAverageSessionDurationPerUser,
+                    TotalPercentageOfNewUsers = totalPercentageOfNewUsers
                 };
+                // --- End: Process the response (part 1: headers and totals) ---
 
                 lock (reports)
                 {
-                    reports[propertyId] = report;
+                    reports[propertyId] = report; // Add the placeholder report
                 }
             }
             catch (Exception ex)
@@ -233,8 +384,8 @@ namespace ActionableIQ.Core.Services
                     Users = totalUsers,
                     NewUsers = newUsers,
                     ActiveUsers = activeUsers,
-                    AverageSessionDurationPerUser = userEngagementDuration / 1000.0 / (double)activeUsers, // Convert ms to seconds
-                    PercentageOfNewUsers = (newUsers / (double)totalUsers) * 100
+                    AverageSessionDurationPerUser = (activeUsers > 0) ? (userEngagementDuration / 1000.0 / (double)activeUsers) : 0.0, // Convert ms to seconds
+                    PercentageOfNewUsers = (totalUsers > 0) ? ((double)newUsers / (double)totalUsers) * 100 : 0.0
                 });
             }
 

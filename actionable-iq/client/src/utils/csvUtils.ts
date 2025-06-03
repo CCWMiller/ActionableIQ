@@ -2,6 +2,8 @@ import { AnalyticsQueryResponse, AnalyticsProperty, AnalyticsMultiQueryResponse 
 
 // Default TOS benchmark value (can be overridden by data if available)
 const DEFAULT_TOS_BENCHMARK_VALUE = 30;
+const USER_PERCENT_BENCHMARK_VALUE = 60; // Added
+const TOTAL_USER_BENCHMARK_VALUE = 5;   // Added
 
 /**
  * Formats column headers for display
@@ -13,13 +15,18 @@ export const formatColumnHeader = (name: string): string => {
     case 'newUsers': return 'New Users';
     case 'activeUsers': return 'Active Users';
     case 'totalUsers': return 'Total Users';
-    case 'userEngagementDuration': return 'Average Session Duration Per Active User';
+    case 'userEngagementDuration': return 'Average Session Duration Per Active User (s)';
+    case 'averageSessionDurationPerUser': return 'Average Session Duration Per Active User (s)';
     case 'region': return 'Region';
     case 'sourceMedium': return 'Source / Medium';
     case 'firstUserSourceMedium': return 'Source / Medium';
-    case 'Total User %': return 'Total User %';
+    case 'New User %': return 'Total User %'; // Consistent with UI
     case 'TOS Benchmark': return 'TOS Benchmark';
-    case 'Passed Benchmark': return 'Passed Benchmark';
+    case 'Passed Benchmark': return 'Passed TOS Benchmark'; // Consistent with UI
+    case 'User % Benchmark': return 'User % Benchmark'; // New
+    case 'Passed Geo Benchmark': return 'Passed Geo Benchmark'; // New
+    case 'Total User Benchmark': return 'Total User Benchmark'; // New
+    case 'Passed Total User Benchmark': return 'Passed Total User Benchmark'; // New
     default: return name.charAt(0).toUpperCase() + name.slice(1).replace(/([A-Z])/g, ' $1');
   }
 };
@@ -27,24 +34,26 @@ export const formatColumnHeader = (name: string): string => {
 /**
  * Formats a value for display based on the column type for CSV reports
  * @param value The value to format
- * @param columnName The name of the column
+ * @param columnName The name of the column (this should be the *display name* after formatColumnHeader)
  * @returns Formatted value for CSV
  */
 export const formatCsvColumnValue = (value: string, columnName: string): string => {
   if (value === null || value === undefined) return '';
+  console.log("Column Name: ", columnName);
   const stringValue = String(value);
 
-  if (columnName === 'userEngagementDuration') {
-    return `${stringValue}s`;
-  }
-  if (columnName === 'Total User %') {
+  // Using display names for checks here
+  if (columnName === 'Total User %' || columnName === 'User % Benchmark') { // Modified for new column
     return `${stringValue}%`;
   }
   if (columnName === 'TOS Benchmark') {
     return `${stringValue}s`;
   }
-  if (columnName === 'Passed Benchmark') {
+  if (columnName === 'Passed TOS Benchmark' || columnName === 'Passed Geo Benchmark' || columnName === 'Passed Total User Benchmark') { // Modified for new columns
     return stringValue.toUpperCase(); // Output "TRUE" or "FALSE"
+  }
+  if (columnName === 'Total User Benchmark') { // New
+    return stringValue; // No special formatting
   }
   return stringValue;
 };
@@ -59,86 +68,89 @@ export const formatCsvColumnValue = (value: string, columnName: string): string 
  */
 export const getReportColumns = (
     dimensionHeaders: Array<{ name: string }>,
-    metricHeaders: Array<{ name: string }>,
+    metricHeaders: Array<{ name: string }>, // These are allProcessedMetricHeaders from processQueryData
     effectiveDateRange: string
 ) => {
     const columns: Array<{
-        name: string;
+        name: string; // This will be the display name
         type: 'dimension' | 'metric' | 'added';
         originalIndex?: number;
-        originalMetricName?: string;
+        internalName: string; // Store the internal name for lookups
         value?: string; // For 'added' columns
-        metricHeaders?: Array<{ name: string }>; // For complex calculations like avg engagement in getCellValue
+        metricHeaders?: Array<{ name: string }>; // For context in getCsvCellValue
     }> = [];
 
-    const regionIndex = dimensionHeaders.findIndex(h => h.name === 'region');
-    const sourceMediumIndex = dimensionHeaders.findIndex(h => h.name === 'sourceMedium' || h.name === 'firstUserSourceMedium');
+    const addDimension = (internalName: string, displayName?: string, props?: object) => {
+      const index = dimensionHeaders.findIndex(h => h.name === internalName);
+      if (index !== -1) {
+        columns.push({ 
+          name: formatColumnHeader(displayName || internalName), 
+          type: 'dimension', 
+          originalIndex: index, 
+          internalName,
+          ...props 
+        });
+      }
+    };
 
-    // Order: Region, Date Range, Source/Medium, Metrics, then other dimensions
-    // Columns are added according to the user-specified order.
+    // Order: Property ID and Property Name are prepended in generateStandardCsvReportData.
+    // Then Region, Date Range, Source/Medium, followed by Metrics.
 
-    // 1. Region (from dimensionHeaders, becomes 3rd in CSV after Property ID, Property Name)
-    if (regionIndex !== -1) {
-        columns.push({ name: formatColumnHeader('region'), type: 'dimension', originalIndex: regionIndex });
-    }
+    // 1. Region
+    addDimension('region');
 
-    // 2. Date Range (added, becomes 4th)
-    columns.push({ name: 'Date Range', type: 'added', value: effectiveDateRange });
+    // 2. Date Range
+    columns.push({ name: formatColumnHeader('Date Range'), type: 'added', value: effectiveDateRange, internalName: 'dateRange' });
 
-    // 3. Source / Medium (from dimensionHeaders, becomes 5th)
-    if (sourceMediumIndex !== -1) {
-        columns.push({ name: formatColumnHeader('firstUserSourceMedium'), type: 'dimension', originalIndex: sourceMediumIndex });
-    }
+    // 3. Source / Medium
+    const sourceMediumInternalName = dimensionHeaders.some(h => h.name === 'firstUserSourceMedium') ? 'firstUserSourceMedium' : 'sourceMedium';
+    addDimension(sourceMediumInternalName, 'Source / Medium');
     
-    // 4. Metrics in specified order (become 6th to 12th)
+    // 4. Metrics - strictly from orderedMetricsSpec
+    const availableMetricsMap = new Map(metricHeaders.map(h => [h.name, h]));
+    
     const orderedMetricsSpec = [
-        { apiName: 'totalUsers', displayName: 'Total Users' },
-        { apiName: 'newUsers', displayName: 'New Users' },
-        { apiName: 'activeUsers', displayName: 'Active Users' },
-        { apiName: 'userEngagementDuration', displayName: 'Average Session Duration Per Active User' }, // Will be calculated as average
-        { apiName: 'Total User %', displayName: 'Total User %' }, // Calculated, needs 'totalUsers'
-        { apiName: 'TOS Benchmark', displayName: 'TOS Benchmark' }, // Default or from data
-        { apiName: 'Passed Benchmark', displayName: 'Passed Benchmark' } // Calculated
+        // --- Query Results Section ---
+        { internalName: 'totalUsers', displayName: 'Total Users' },
+        { internalName: 'newUsers', displayName: 'New Users' },
+        { internalName: 'activeUsers', displayName: 'Active Users' },
+        { internalName: 'New User %', displayName: 'Total User %' }, // processQueryData adds 'New User %' which is displayed as 'Total User %'
+        { internalName: 'averageSessionDurationPerUser', displayName: 'Average Session Duration Per Active User (s)' },
+        
+        // --- Actionable Data Section ---
+        { internalName: 'TOS Benchmark', displayName: 'TOS Benchmark' },
+        { internalName: 'Passed Benchmark', displayName: 'Passed TOS Benchmark' }, // processQueryData adds 'Passed Benchmark' for this
+        { internalName: 'User % Benchmark', displayName: 'User % Benchmark' }, 
+        { internalName: 'Passed Geo Benchmark', displayName: 'Passed Geo Benchmark' }, 
+        { internalName: 'Total User Benchmark', displayName: 'Total User Benchmark' }, 
+        { internalName: 'Passed Total User Benchmark', displayName: 'Passed Total User Benchmark' } 
     ];
 
     orderedMetricsSpec.forEach(metricSpec => {
-        const metricIndex = metricHeaders.findIndex(h => h.name === metricSpec.apiName || h.name === metricSpec.displayName);
-        const isCalculatedOrAlwaysAdded = metricSpec.apiName === 'Total User %' || metricSpec.apiName === 'TOS Benchmark' || metricSpec.apiName === 'Passed Benchmark';
-        const baseMetricExistsForCalc = metricSpec.apiName === 'Total User %' && metricHeaders.some(h => h.name === 'totalUsers');
-
-        if (metricIndex !== -1 || isCalculatedOrAlwaysAdded || baseMetricExistsForCalc) {
+        if (availableMetricsMap.has(metricSpec.internalName)) {
             columns.push({
-                name: metricSpec.displayName, // Use the exact display name specified
+                name: metricSpec.displayName || formatColumnHeader(metricSpec.internalName),
                 type: 'metric',
-                originalIndex: metricIndex !== -1 ? metricIndex : undefined,
-                originalMetricName: metricSpec.apiName, // Store the API name for lookups in getCsvCellValue
-                metricHeaders: metricHeaders 
+                // Ensure originalIndex points to the metric's position in the input metricHeaders array for correct value lookup
+                originalIndex: metricHeaders.findIndex(h => h.name === metricSpec.internalName),
+                internalName: metricSpec.internalName,
+                metricHeaders // Pass the full metricHeaders for context if getCsvCellValue needs it
             });
+        } else {
+            // Metric from orderedMetricsSpec not found in availableHeaders. It will be omitted.
+            // console.warn(`[csvUtils] Metric "${metricSpec.internalName}" from orderedMetricsSpec was not found in available metricHeaders.`);
         }
     });
     
-    // Add any other dimension headers not already included (these will appear after the specified columns)
+    // Fallback for any other DIMENSION headers not already included explicitly
     dimensionHeaders.forEach((header, index) => {
-        if (!columns.some(c => c.type === 'dimension' && c.originalIndex === index)) {
-            columns.push({ name: formatColumnHeader(header.name), type: 'dimension', originalIndex: index });
+        if (!columns.some(c => c.internalName === header.name && c.type === 'dimension')) {
+            // Call addDimension to maintain consistency, ensuring originalIndex is set correctly.
+            addDimension(header.name, header.name, { originalIndex: index });
         }
     });
 
-    // Add any other metric headers not already included (these will appear after the specified columns)
-    metricHeaders.forEach((header) => {
-        const formattedName = formatColumnHeader(header.name);
-        // Ensure we don't re-add columns already defined or the old "New User %" related headers
-        if (!columns.some(c => c.type === 'metric' && (c.originalMetricName === header.name || c.name === formattedName)) &&
-            header.name !== 'newUsers' && formattedName !== 'New User %' && header.name !== 'New User %') { // Explicitly skip 'newUsers' and its formatted versions
-            columns.push({ 
-                name: formattedName, 
-                type: 'metric', 
-                originalIndex: metricHeaders.findIndex(h => h.name === header.name),
-                originalMetricName: header.name,
-                metricHeaders: metricHeaders
-            });
-        }
-    });
+    // NO FALLBACK FOR METRICS. Only metrics in orderedMetricsSpec are included.
 
     return columns;
 };
@@ -146,24 +158,24 @@ export const getReportColumns = (
 /**
  * Retrieves and formats the value for a specific cell in the CSV.
  * @param row The data for the current row.
- * @param column The column definition.
- * @param metricHeadersFromSingleResult All metric headers for context (e.g., for calculating averages).
- * @param propertyTotalTotalUsers Total users for the property.
- * @param currentPropertyTosBenchmark Optional property-specific TOS benchmark.
+ * @param column The column definition from getReportColumns.
+ * @param allMetricHeaders All metric headers for the current property from singleResult.metricHeaders.
+ * @param propertyTotalTotalUsers Total users for the property (used for 'Total User %' calculation for the row if needed, though processQueryData should pre-calculate it).
+ * @param currentPropertyTosBenchmark Property-specific TOS benchmark.
  * @returns The string value for the cell.
  */
 export const getCsvCellValue = (
     row: { dimensionValues: Array<{ value: string }>, metricValues: Array<{ value: string }> },
     column: {
-        name: string;
+        name: string; // Display Name
         type: 'dimension' | 'metric' | 'added';
         originalIndex?: number;
-        originalMetricName?: string;
-        value?: string; // For 'added' columns
-        metricHeaders?: Array<{ name: string }>; // All metric headers for context
+        internalName: string; // Internal Name
+        value?: string; 
+        metricHeaders?: Array<{ name: string }>;
     },
-    metricHeadersFromSingleResult: Array<{ name: string }>,
-    propertyTotalTotalUsers: number,
+    allMetricHeaders: Array<{ name: string }>,
+    propertyTotalTotalUsers: number, // For context, though New User % should be pre-calculated
     currentPropertyTosBenchmark: number
 ): string => {
     if (column.type === 'added') {
@@ -178,70 +190,35 @@ export const getCsvCellValue = (
     }
 
     if (column.type === 'metric') {
+        // Find the metric value by its internalName in the row's metricValues
+        // This assumes processQueryData has added all necessary metrics (original and calculated) to metricValues
+        // and their headers (with internalName) to allMetricHeaders.
+        const headerIndexInAll = allMetricHeaders.findIndex(h => h.name === column.internalName);
         let rawValue: string | undefined = undefined;
 
-        if (typeof column.originalIndex === 'number' && column.originalIndex >= 0 && column.originalIndex < row.metricValues.length) {
-            rawValue = row.metricValues[column.originalIndex].value;
-        }
-
-        // Handle calculated metrics
-        if (column.name === 'Average Session Duration Per Active User') {
-            const engagementDurationSumIndex = column.metricHeaders?.findIndex(h => h.name === 'userEngagementDuration');
-            const activeUsersIndex = column.metricHeaders?.findIndex(h => h.name === 'activeUsers');
-
-            if (engagementDurationSumIndex !== undefined && engagementDurationSumIndex !== -1 && activeUsersIndex !== undefined && activeUsersIndex !== -1 &&
-                engagementDurationSumIndex < row.metricValues.length && activeUsersIndex < row.metricValues.length) {
-                const engagementDurationSum = Number(row.metricValues[engagementDurationSumIndex].value || 0);
-                const activeUsers = Number(row.metricValues[activeUsersIndex].value || 0);
-                const avgDuration = activeUsers > 0 ? (engagementDurationSum / activeUsers) : 0;
-                return formatCsvColumnValue(Math.round(avgDuration).toString(), 'userEngagementDuration');
+        if (headerIndexInAll !== -1 && headerIndexInAll < row.metricValues.length) {
+            rawValue = row.metricValues[headerIndexInAll].value;
+        } else {
+            // Fallback for metrics that might need on-the-fly calculation if not found directly (e.g. Avg Session Duration)
+            if (column.internalName === 'averageSessionDurationPerUser') { // This refers to the request for Avg Session Duration
+                const engagementSumIndex = allMetricHeaders.findIndex(h => h.name === 'averageSessionDurationPerUser'); // Actual sum
+                const activeUsersIdx = allMetricHeaders.findIndex(h => h.name === 'activeUsers');
+                if (engagementSumIndex !== -1 && activeUsersIdx !== -1 && 
+                    engagementSumIndex < row.metricValues.length && activeUsersIdx < row.metricValues.length) {
+                    const engagementDurationSum = Number(row.metricValues[engagementSumIndex].value || 0);
+                    const activeUsers = Number(row.metricValues[activeUsersIdx].value || 0);
+                    const avgDuration = activeUsers > 0 ? (engagementDurationSum / activeUsers) : 0;
+                    return formatCsvColumnValue(Math.round(avgDuration).toString(), column.name); // Format with display name
+                }
+                return formatCsvColumnValue('0', column.name);
             }
-            return formatCsvColumnValue('0', 'userEngagementDuration');
-        }
-
-        if (column.name === 'Total User %') {
-            const rowTotalUsersIndex = metricHeadersFromSingleResult.findIndex(h => h.name === 'totalUsers');
-            if (rowTotalUsersIndex !== -1 && rowTotalUsersIndex < row.metricValues.length && propertyTotalTotalUsers > 0) {
-                const rowTotalUsers = Number(row.metricValues[rowTotalUsersIndex].value || 0);
-                const totalUserPerc = (rowTotalUsers / propertyTotalTotalUsers) * 100;
-                return formatCsvColumnValue(totalUserPerc.toFixed(2), 'Total User %');
-            }
-            return formatCsvColumnValue('0', 'Total User %');
+            // For 'New User %', 'Passed Benchmark', 'User % Benchmark', 'Passed Geo Benchmark', 
+            // 'Total User Benchmark', 'Passed Total User Benchmark', 'TOS Benchmark'
+            // processQueryData should have already put these values into row.metricValues.
+            // If they are not found by internalName, it implies an issue or they weren't added, so default to '0' or empty.
         }
         
-        if (column.name === 'TOS Benchmark') {
-            // If TOS Benchmark data is directly in metricValues (e.g., from QueryForm results for the total row)
-            // or if it needs to be consistently applied from a property-level or global benchmark for rows.
-            // The currentPropertyTosBenchmark parameter now handles this consistency for rows.
-            if (rawValue !== undefined && column.originalMetricName === 'TOS Benchmark') {
-                 return formatCsvColumnValue(rawValue, 'TOS Benchmark');
-            }
-            // Otherwise, use the passed currentPropertyTosBenchmark for rows or default for totals if not passed.
-            return formatCsvColumnValue(String(currentPropertyTosBenchmark !== undefined ? currentPropertyTosBenchmark : DEFAULT_TOS_BENCHMARK_VALUE), 'TOS Benchmark');
-        }
-
-        if (column.name === 'Passed Benchmark') {
-            // This calculation is for individual data rows in the CSV.
-            // It uses metricHeadersFromSingleResult to find necessary indices for the current row's data.
-            const engagementDurationSumIndex = metricHeadersFromSingleResult?.findIndex(h => h.name === 'userEngagementDuration');
-            const activeUsersIndex = metricHeadersFromSingleResult?.findIndex(h => h.name === 'activeUsers');
-            
-            let avgEngForRow = 0;
-            if (engagementDurationSumIndex !== undefined && engagementDurationSumIndex !== -1 && 
-                activeUsersIndex !== undefined && activeUsersIndex !== -1 &&
-                engagementDurationSumIndex < row.metricValues.length && activeUsersIndex < row.metricValues.length) {
-                
-                const engagementDurationSum = Number(row.metricValues[engagementDurationSumIndex].value || 0);
-                const activeUsers = Number(row.metricValues[activeUsersIndex].value || 0);
-                avgEngForRow = activeUsers > 0 ? Math.round(engagementDurationSum / activeUsers) : 0;
-            }
-            
-            const benchmarkToCompare = currentPropertyTosBenchmark !== undefined ? currentPropertyTosBenchmark : DEFAULT_TOS_BENCHMARK_VALUE;
-            const passed = avgEngForRow > benchmarkToCompare;
-            return formatCsvColumnValue(String(passed).toUpperCase(), 'Passed Benchmark');
-        }
-
-        return formatCsvColumnValue(rawValue || '0', column.originalMetricName || column.name);
+        return formatCsvColumnValue(rawValue || '0', column.name); // Format with display name
     }
     return '';
 };
@@ -254,44 +231,34 @@ export const getCsvCellValue = (
  */
 export const calculateCsvRowTotals = (singleResult: AnalyticsQueryResponse, propertyTosBenchmark?: number) => {
     const totals = {
-        totalUsers: 0,
-        newUsers: 0,
-        activeUsers: 0,
-        engagementDurationSum: 0,
-        averageEngagementDuration: 0,
+        totalUsers: singleResult.totalUsers || 0,
+        newUsers: singleResult.totalNewUsers || 0,
+        activeUsers: singleResult.totalActiveUsers || 0,
+        averageEngagementDuration: singleResult.totalAverageSessionDurationPerUser || 0,
+        totalUserPercent: '', // For CSV total row, this should be blank
         tosBenchmark: propertyTosBenchmark !== undefined ? propertyTosBenchmark : DEFAULT_TOS_BENCHMARK_VALUE,
-        passedBenchmark: false,
+        passedTosBenchmark: false, // Will be calculated below
+        userPercentBenchmark: USER_PERCENT_BENCHMARK_VALUE, // New
+        passedGeoBenchmark: false, // New
+        totalUserBenchmark: TOTAL_USER_BENCHMARK_VALUE, // New
+        passedTotalUserBenchmark: false, // New
     };
 
-    if (!singleResult || !singleResult.rows || singleResult.rows.length === 0) {
-        return totals;
+    if (!singleResult) {
+        return {
+            totalUsers: 0, newUsers: 0, activeUsers: 0, averageEngagementDuration: 0,
+            totalUserPercent: '', // Blank for CSV total row
+            tosBenchmark: DEFAULT_TOS_BENCHMARK_VALUE, passedTosBenchmark: false,
+            userPercentBenchmark: USER_PERCENT_BENCHMARK_VALUE, passedGeoBenchmark: false,
+            totalUserBenchmark: TOTAL_USER_BENCHMARK_VALUE, passedTotalUserBenchmark: false,
+        };
     }
 
-    const metricIndices = {
-        totalUsers: singleResult.metricHeaders.findIndex(h => h.name === 'totalUsers'),
-        newUsers: singleResult.metricHeaders.findIndex(h => h.name === 'newUsers'),
-        activeUsers: singleResult.metricHeaders.findIndex(h => h.name === 'activeUsers'),
-        userEngagementDuration: singleResult.metricHeaders.findIndex(h => h.name === 'userEngagementDuration'),
-        // 'Total User %', 'TOS Benchmark', 'Passed Benchmark' are calculated or use default/passed value
-    };
-    
-    // If a TOS Benchmark value is provided in the *metric data itself* (e.g. from QueryForm flow), use it for this property.
-    // This assumes it might be present in metricHeaders and metricValues for each row.
-    const dataTosBenchmarkIndex = singleResult.metricHeaders.findIndex(h => h.name === 'TOS Benchmark');
-    if (dataTosBenchmarkIndex !== -1 && singleResult.rows[0]?.metricValues[dataTosBenchmarkIndex]?.value !== undefined) {
-        totals.tosBenchmark = Number(singleResult.rows[0].metricValues[dataTosBenchmarkIndex].value || totals.tosBenchmark);
-    }
-
-
-    singleResult.rows.forEach(row => {
-        if (metricIndices.totalUsers !== -1) totals.totalUsers += Number(row.metricValues[metricIndices.totalUsers]?.value || 0);
-        if (metricIndices.newUsers !== -1) totals.newUsers += Number(row.metricValues[metricIndices.newUsers]?.value || 0);
-        if (metricIndices.activeUsers !== -1) totals.activeUsers += Number(row.metricValues[metricIndices.activeUsers]?.value || 0);
-        if (metricIndices.userEngagementDuration !== -1) totals.engagementDurationSum += Number(row.metricValues[metricIndices.userEngagementDuration]?.value || 0);
-    });
-
-    totals.averageEngagementDuration = totals.activeUsers > 0 ? Math.round(totals.engagementDurationSum / totals.activeUsers) : 0;
-    totals.passedBenchmark = totals.averageEngagementDuration > totals.tosBenchmark;
+    totals.passedTosBenchmark = totals.averageEngagementDuration >= totals.tosBenchmark;
+    // For the CSV total row, 'Passed Geo Benchmark' should reflect the property-wide new user percentage.
+    const propertyOverallNewUserPercent = singleResult.totalPercentageOfNewUsers || 0;
+    totals.passedGeoBenchmark = propertyOverallNewUserPercent >= totals.userPercentBenchmark;
+    totals.passedTotalUserBenchmark = totals.totalUsers >= totals.totalUserBenchmark;
 
     return totals;
 };
@@ -308,117 +275,117 @@ export const calculateCsvRowTotals = (singleResult: AnalyticsQueryResponse, prop
 export const generateStandardCsvReportData = (
     analyticsResults: AnalyticsQueryResponse[] | AnalyticsMultiQueryResponse,
     propertyMap: Record<string, string>,
-    effectiveDateRangeString: string, // Expects "YYYY-MM-DD - YYYY-MM-DD"
+    effectiveDateRangeString: string, 
     globalTosBenchmark?: number 
 ): string => {
     let csvContent = '';
-
-    // Extract the actual results array, whether it's a direct array or nested
     const resultsArray: AnalyticsQueryResponse[] = Array.isArray(analyticsResults)
         ? analyticsResults
         : (analyticsResults as AnalyticsMultiQueryResponse).results || [];
 
     if (!resultsArray || resultsArray.length === 0) {
-        console.warn("[generateStandardCsvReportData] No results to process for CSV.");
-        // Return a CSV with headers and a "No Data" message if results are empty
-        // To form headers correctly, we need a typical structure.
+        // Create a header row even for empty data, including new columns
         const tempDimensionHeaders: Array<{ name: string }> = [{name: 'region'}, {name: 'firstUserSourceMedium'}];
         const tempMetricHeaders: Array<{ name: string }> = [
             {name: 'totalUsers'}, {name: 'newUsers'}, {name: 'activeUsers'}, 
-            {name: 'userEngagementDuration'}, {name: 'Total User %'}, // Placeholder name, will be updated soon
-            {name: 'TOS Benchmark'}, {name: 'Passed Benchmark'}
+            {name: 'userEngagementDuration'}, {name: 'New User %'}, 
+            {name: 'TOS Benchmark'}, {name: 'Passed Benchmark'},
+            {name: 'User % Benchmark'}, {name: 'Passed Geo Benchmark'}, // New
+            {name: 'Total User Benchmark'}, {name: 'Passed Total User Benchmark'} // New
         ];
         const orderedCols = getReportColumns(tempDimensionHeaders, tempMetricHeaders, effectiveDateRangeString);
-        const headerRowForEmpty = ["Property Name", ...orderedCols.map(col => col.name)];
+        const headerRowForEmpty = ["Property ID", "Property Name", ...orderedCols.map(col => col.name)];
         csvContent = headerRowForEmpty.map(h => `"${String(h || '').replace(/"/g, '""')}"`).join(',') + '\r\n';
         const noDataCells = Array(headerRowForEmpty.length).fill('"No Data"').join(',');
         csvContent += noDataCells + '\r\n';
         return csvContent;
     }
 
-    // Use the first result to determine headers structure (assuming consistent headers)
     const firstResult = resultsArray[0];
-    // No early return for !firstResult here, as resultsArray is checked for length > 0
-
-    const reportColumns = getReportColumns(firstResult.dimensionHeaders, firstResult.metricHeaders, effectiveDateRangeString);
+    // Use all metric headers from the first result, assuming processQueryData made them consistent
+    const allProcessedMetricHeaders = firstResult.metricHeaders || []; 
+    const reportColumns = getReportColumns(firstResult.dimensionHeaders, allProcessedMetricHeaders, effectiveDateRangeString);
     const headerRow = ["Property ID", "Property Name", ...reportColumns.map(c => c.name)];
-    csvContent = headerRow.map(h => `"${String(h || '').replace(/"/g, '""')}"`).join(',') + '\r\n'; // Headers written here
+    csvContent = headerRow.map(h => `"${String(h || '').replace(/"/g, '""')}"`).join(',') + '\r\n';
 
     resultsArray.forEach(singleResult => {
-        if (!singleResult || !singleResult.rows) return; // Skip if a result is malformed
+        if (!singleResult || !singleResult.rows) return;
 
         const propertyId = singleResult.propertyId;
-        const propertyName = 
-            propertyMap[propertyId] || 
-            propertyMap[propertyId.replace(/^properties\//, '')] || 
-            propertyId; 
-
-        // Determine TOS benchmark for this specific property
+        const propertyName = propertyMap[propertyId] || propertyMap[propertyId.replace(/^properties\//, '')] || propertyId;
         let currentPropertyTosBenchmark = globalTosBenchmark !== undefined ? globalTosBenchmark : DEFAULT_TOS_BENCHMARK_VALUE;
-        const dataTosBenchmarkIndex = singleResult.metricHeaders.findIndex(h => h.name === 'TOS Benchmark');
         
-        // Check if rows exist and the first row has metricValues before accessing them
-        if (singleResult.rows && singleResult.rows.length > 0 && singleResult.rows[0].metricValues && 
-            dataTosBenchmarkIndex !== -1 && singleResult.rows[0].metricValues[dataTosBenchmarkIndex]?.value !== undefined) {
-            currentPropertyTosBenchmark = Number(singleResult.rows[0].metricValues[dataTosBenchmarkIndex].value || currentPropertyTosBenchmark);
+        // For currentPropertyTosBenchmark, check if 'TOS Benchmark' value exists in the first row's metrics.
+        // This assumes 'TOS Benchmark' was added by processQueryData consistently if it exists.
+        const tosBenchmarkHeaderIndex = singleResult.metricHeaders.findIndex(h => h.name === 'TOS Benchmark');
+        if (singleResult.rows.length > 0 && tosBenchmarkHeaderIndex !== -1 && 
+            singleResult.rows[0].metricValues[tosBenchmarkHeaderIndex]?.value !== undefined) {
+            currentPropertyTosBenchmark = Number(singleResult.rows[0].metricValues[tosBenchmarkHeaderIndex].value || currentPropertyTosBenchmark);
         }
 
         const totals = calculateCsvRowTotals(singleResult, currentPropertyTosBenchmark);
 
-        // Add total row for this property
-        const totalRowData = [
+        const totalRowData: string[] = [
             `"${propertyId}"`,
             `"${propertyName.replace(/"/g, '""')}"`
         ];
         reportColumns.forEach(column => {
             let valueStr = '';
-            if (column.name === 'Region') { // Or whatever the first dimension column is named by getReportColumns
+            if (column.internalName === 'region') { 
                 valueStr = 'Total';
-            } else if (column.type === 'added' && column.name === 'Date Range') {
+            } else if (column.internalName === 'dateRange') {
                 valueStr = column.value || effectiveDateRangeString;
             } else if (column.type === 'metric') {
-                switch (column.name) { // column.name is the display name from getReportColumns
-                    case formatColumnHeader('totalUsers'):
-                        valueStr = totals.totalUsers.toString();
+                // Use column.internalName for reliable lookup in totals object keys
+                switch (column.internalName) { 
+                    case 'totalUsers': valueStr = totals.totalUsers.toString(); break;
+                    case 'newUsers': valueStr = totals.newUsers.toString(); break;
+                    case 'activeUsers': valueStr = totals.activeUsers.toString(); break;
+                    case 'averageSessionDurationPerUser': // This is for 'Average Session Duration Per User'
+                        valueStr = formatCsvColumnValue(totals.averageEngagementDuration.toFixed(0), column.name); // Use display name for formatting context
                         break;
-                    case formatColumnHeader('newUsers'):
-                        valueStr = totals.newUsers.toString();
+                    case 'New User %': // This is for 'Total User %' in the CSV total row
+                        valueStr = totals.totalUserPercent; // This is now an empty string from calculateCsvRowTotals
                         break;
-                    case formatColumnHeader('activeUsers'):
-                        valueStr = totals.activeUsers.toString();
+                    case 'TOS Benchmark': 
+                        valueStr = formatCsvColumnValue(String(totals.tosBenchmark), column.name);
                         break;
-                    case formatColumnHeader('userEngagementDuration'): // This is 'Average Session Duration Per Active User'
-                        valueStr = formatCsvColumnValue(totals.averageEngagementDuration.toString(), 'userEngagementDuration');
+                    case 'Passed Benchmark': // This is for 'Passed TOS Benchmark'
+                        valueStr = formatCsvColumnValue(totals.passedTosBenchmark.toString(), column.name);
                         break;
-                    case formatColumnHeader('TOS Benchmark'):
-                        valueStr = formatCsvColumnValue(totals.tosBenchmark.toString(), 'TOS Benchmark');
+                    // New columns for the total row
+                    case 'User % Benchmark':
+                        valueStr = formatCsvColumnValue(totals.userPercentBenchmark.toString(), column.name);
                         break;
-                    case formatColumnHeader('Passed Benchmark'):
-                        valueStr = formatCsvColumnValue(totals.passedBenchmark.toString(), 'Passed Benchmark');
+                    case 'Passed Geo Benchmark':
+                        valueStr = formatCsvColumnValue(totals.passedGeoBenchmark.toString(), column.name);
                         break;
-                    default: valueStr = '0'; // Default for any other metric in total row
+                    case 'Total User Benchmark':
+                        valueStr = formatCsvColumnValue(totals.totalUserBenchmark.toString(), column.name);
+                        break;
+                    case 'Passed Total User Benchmark':
+                        valueStr = formatCsvColumnValue(totals.passedTotalUserBenchmark.toString(), column.name);
+                        break;
+                    default: valueStr = '0';
                 }
             }
             totalRowData.push(`"${String(valueStr || '').replace(/"/g, '""')}"`);
         });
         csvContent += totalRowData.join(',') + '\r\n';
 
-        // Add individual data rows if there are any
         if (singleResult.rows.length > 0) {
             singleResult.rows.forEach(row => {
-                const rowData = [
+                const rowData: string[] = [
                     `"${propertyId}"`,
                     `"${propertyName.replace(/"/g, '""')}"`
                 ];
                 reportColumns.forEach(column => {
+                    // Pass allMetricHeaders from singleResult for context in getCsvCellValue
                     const cellVal = getCsvCellValue(row, column, singleResult.metricHeaders, totals.totalUsers, currentPropertyTosBenchmark);
                     rowData.push(`"${String(cellVal || '').replace(/"/g, '""')}"`);
                 });
                 csvContent += rowData.join(',') + '\r\n';
             });
-        } else { // If a property has a total row but no individual data rows (e.g. filtered out)
-            // We might want a "No individual data" line or just leave it as is (total row only)
-            // For now, if rows array is empty, only total row is added for this property.
         }
     });
     return csvContent;

@@ -22,71 +22,111 @@ import {
 
 // TOS Benchmark value in seconds
 const TOS_BENCHMARK_VALUE = 30;
+const USER_PERCENT_BENCHMARK_VALUE = 60;
+const TOTAL_USER_BENCHMARK_VALUE = 5;
 
 /**
  * Process query results to add benchmark columns and New User %
  */
-const processQueryData = (result: any): any => {
+export const processQueryData = (result: any): any => {
+  console.log('[analyticsActions] processQueryData received input result:', JSON.parse(JSON.stringify(result))); // Deep copy for logging
+  // The 'result' object (which is an AnalyticsQueryResponse) now contains:
+  // result.totalUsers, result.totalNewUsers, result.totalActiveUsers,
+  // result.totalAverageSessionDurationPerUser, result.totalPercentageOfNewUsers
+  // These are the true, deduplicated property-wide totals.
+
   // Clone the result to avoid modifying the original
-  const processedResult = { ...result };
-  
-  // Calculate the total active users across all regions for this property
-  let totalActiveUsers = 0;
-  if (result.rows && result.rows.length > 0) {
-    const activeUsersIndex = result.metricHeaders.findIndex((h: {name: string}) => h.name === 'activeUsers');
-    if (activeUsersIndex >= 0) {
-      totalActiveUsers = result.rows.reduce((total: number, row: any) => {
-        const activeUsers = parseFloat(row.metricValues[activeUsersIndex].value) || 0;
-        return total + activeUsers;
-      }, 0);
-    }
-  }
+  const processedResult = { ...result }; 
+
+  // REMOVED: Manual calculation of totalActiveUsers by summing rows.
+  // We will use result.totalActiveUsers if a property-wide total is needed for a row calculation,
+  // or row-specific metrics for row-specific percentages.
   
   // Add new headers for the additional columns
-  processedResult.dimensionHeaders = [...result.dimensionHeaders];
-  processedResult.metricHeaders = [
-    ...result.metricHeaders,
-    { name: 'New User %', type: 'METRIC_TYPE_PERCENT' },
-    { name: 'TOS Benchmark', type: 'METRIC_TYPE_SECONDS' },
-    { name: 'Passed Benchmark', type: 'METRIC_TYPE_BOOLEAN' }
-  ];
+  // Ensure these headers are not duplicated if processQueryData is ever called multiple times on the same object
+  const existingMetricNames = new Set(result.metricHeaders.map((h: {name: string}) => h.name));
+  const metricsToAdd: { name: string; type: string }[] = [];
+  if (!existingMetricNames.has('New User %')) {
+    metricsToAdd.push({ name: 'New User %', type: 'METRIC_TYPE_PERCENT' });
+  }
+  if (!existingMetricNames.has('TOS Benchmark')) {
+    metricsToAdd.push({ name: 'TOS Benchmark', type: 'METRIC_TYPE_SECONDS' });
+  }
+  if (!existingMetricNames.has('Passed Benchmark')) {
+    metricsToAdd.push({ name: 'Passed Benchmark', type: 'METRIC_TYPE_BOOLEAN' });
+  }
+  if (!existingMetricNames.has('User % Benchmark')) {
+    metricsToAdd.push({ name: 'User % Benchmark', type: 'METRIC_TYPE_PERCENT' });
+  }
+  if (!existingMetricNames.has('Passed Geo Benchmark')) {
+    metricsToAdd.push({ name: 'Passed Geo Benchmark', type: 'METRIC_TYPE_BOOLEAN' });
+  }
+  if (!existingMetricNames.has('Total User Benchmark')) {
+    metricsToAdd.push({ name: 'Total User Benchmark', type: 'METRIC_TYPE_INTEGER' });
+  }
+  if (!existingMetricNames.has('Passed Total User Benchmark')) {
+    metricsToAdd.push({ name: 'Passed Total User Benchmark', type: 'METRIC_TYPE_BOOLEAN' });
+  }
+
+  processedResult.metricHeaders = [...result.metricHeaders, ...metricsToAdd];
   
   // Add calculated values to each row
   processedResult.rows = result.rows.map((row: any) => {
-    // Find the metrics
     const metricValues = [...row.metricValues];
-    const userEngagementIndex = result.metricHeaders.findIndex((h: {name: string}) => h.name === 'userEngagementDuration');
-    const activeUsersIndex = result.metricHeaders.findIndex((h: {name: string}) => h.name === 'activeUsers');
-    const newUsersIndex = result.metricHeaders.findIndex((h: {name: string}) => h.name === 'newUsers');
     
-    // Calculate New User %
-    let newUserPercent = 0;
-    if (activeUsersIndex >= 0 && totalActiveUsers > 0) {
-      const activeUsers = parseFloat(row.metricValues[activeUsersIndex].value) || 0;
-      newUserPercent = (activeUsers / totalActiveUsers) * 100;
-      metricValues.push({ value: newUserPercent.toFixed(2) }); // New User %
-    } else {
-      metricValues.push({ value: '0.00' }); // Default New User %
+    const getMetricValue = (metricName: string) => {
+      const index = result.metricHeaders.findIndex((h: {name: string}) => h.name === metricName);
+      const rawValue = index >= 0 && row.metricValues[index] ? row.metricValues[index].value : '0';
+      return parseFloat(rawValue) || 0;
+    };
+
+    const rowTotalUsers = getMetricValue('totalUsers');
+    // const rowNewUsers = getMetricValue('newUsers'); // No longer directly needed for 'New User %' calculation
+    const rowActiveUsers = getMetricValue('activeUsers');
+    const rowAvgSessionDurationPerUser = getMetricValue('averageSessionDurationPerUser');
+    
+    // Calculate 'Total User %' for the current row (e.g., for a specific region)
+    // This is (row's totalUsers / Property's totalUsers) * 100
+    let totalUserPercentForRow = 0;
+    if (result.totalUsers > 0) { // Use property's totalUsers for the calculation denominator
+      totalUserPercentForRow = (rowTotalUsers / result.totalUsers) * 100;
+    }
+    // Add 'New User %' (which is displayed as 'Total User %') if the header was added
+    if (metricsToAdd.some(m => m.name === 'New User %')) {
+        metricValues.push({ value: totalUserPercentForRow.toFixed(2) });
     }
     
-    // Add benchmark columns
-    if (userEngagementIndex >= 0 && activeUsersIndex >= 0) {
-      const userEngagementDuration = parseFloat(row.metricValues[userEngagementIndex].value) || 0;
-      const activeUsers = parseFloat(row.metricValues[activeUsersIndex].value) || 0;
-      
-      // Calculate average session duration
-      let avgSessionDuration = 0;
-      if (activeUsers > 0) {
-        avgSessionDuration = userEngagementDuration / activeUsers;
-      }
-      
-      // Add benchmark columns
-      metricValues.push({ value: TOS_BENCHMARK_VALUE.toString() }); // TOS Benchmark
-      metricValues.push({ value: (avgSessionDuration >= TOS_BENCHMARK_VALUE).toString() }); // Passed Benchmark
-    } else {
-      // If metrics not found, add placeholders
-      metricValues.push({ value: TOS_BENCHMARK_VALUE.toString() }); // TOS Benchmark
-      metricValues.push({ value: 'false' }); // Passed Benchmark defaults to false
+    // Calculate TOS Benchmark and Passed Benchmark for the current row
+    const avgSessionDurationForRow = rowAvgSessionDurationPerUser;
+
+    // Add TOS Benchmark if the header was added
+    if (metricsToAdd.some(m => m.name === 'TOS Benchmark')) {
+        metricValues.push({ value: TOS_BENCHMARK_VALUE.toString() });
+    }
+    // Add Passed Benchmark if the header was added
+    if (metricsToAdd.some(m => m.name === 'Passed Benchmark')) {
+        metricValues.push({ value: (avgSessionDurationForRow >= TOS_BENCHMARK_VALUE).toString().toUpperCase() });
+    }
+
+    // Add User % Benchmark (Static 60%)
+    if (metricsToAdd.some(m => m.name === 'User % Benchmark')) {
+        metricValues.push({ value: USER_PERCENT_BENCHMARK_VALUE.toFixed(0) });
+    }
+
+    // Add Passed Geo Benchmark (Total User % >= 60%) - This benchmark logic might need review based on the new 'Total User %' meaning
+    // For now, it will use the newly calculated totalUserPercentForRow.
+    if (metricsToAdd.some(m => m.name === 'Passed Geo Benchmark')) {
+        metricValues.push({ value: (totalUserPercentForRow >= USER_PERCENT_BENCHMARK_VALUE).toString().toUpperCase() });
+    }
+
+    // Add Total User Benchmark (Static 5)
+    if (metricsToAdd.some(m => m.name === 'Total User Benchmark')) {
+        metricValues.push({ value: TOTAL_USER_BENCHMARK_VALUE.toString() });
+    }
+
+    // Add Passed Total User Benchmark (Total Users >= 5)
+    if (metricsToAdd.some(m => m.name === 'Passed Total User Benchmark')) {
+        metricValues.push({ value: (rowTotalUsers >= TOTAL_USER_BENCHMARK_VALUE).toString().toUpperCase() });
     }
     
     return {
