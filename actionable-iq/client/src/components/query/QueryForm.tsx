@@ -74,8 +74,8 @@ const BENCHMARK_PROPERTY_IDS = [
 // Max number of property IDs per batch (server limit)
 const MAX_PROPERTY_IDS_PER_BATCH = 50;
 
-// Predefined email for benchmark report
-const BENCHMARK_EMAIL = "ggeodakyan@gmail.com";
+// Predefined emails for benchmark report
+const BENCHMARK_EMAILS = ["ggeodakyan@gmail.com", "gallisam@gmail.com"];
 
 // TOS Benchmark value in seconds
 const TOS_BENCHMARK_VALUE = 30;
@@ -233,7 +233,7 @@ const QueryForm: React.FC<QueryFormProps> = ({
       setBenchmarkProgress(90);
       
       await reportService.emailCsvReport({
-        recipients: [BENCHMARK_EMAIL],
+        recipients: BENCHMARK_EMAILS,
         reportName: `Analytics Benchmark Report ${formatDateForApi(new Date())}`,
         csvData: csvData
       }, auth.token);
