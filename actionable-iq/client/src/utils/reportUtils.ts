@@ -115,16 +115,16 @@ export const calculateReportMetrics = (results: AnalyticsQueryResponse): ReportM
   }
   
   // If we couldn't find the metrics in the data, use reasonable defaults
-  if (!visits && !pageviews && !bounceRate && !avgSessionDuration) {
-    console.log('[ReportUtils] Using default mock metrics because no metrics were calculated');
-    // Use sample metrics from mock data
-    return {
-      visits: '9,431',
-      pageviews: '20,772',
-      bounceRate: '90.02%',
-      avgSessionDuration: '1m 35s'
-    };
-  }
+  // if (!visits && !pageviews && !bounceRate && !avgSessionDuration) {
+  //   console.log('[ReportUtils] Using default mock metrics because no metrics were calculated');
+  //   // Use sample metrics from mock data
+  //   return {
+  //     visits: '9,431',
+  //     pageviews: '20,772',
+  //     bounceRate: '90.02%',
+  //     avgSessionDuration: '1m 35s'
+  //   };
+  // }
   
   // Format the metrics for display
   const formattedMetrics = {

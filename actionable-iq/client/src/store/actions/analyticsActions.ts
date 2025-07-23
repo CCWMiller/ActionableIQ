@@ -187,9 +187,20 @@ export const executeQuery = (query: AnalyticsQueryRequest) =>
       
       dispatch(executeQueryStart());
       const response = await analyticsApi.runQuery(query, token, idToken);
+
+      // Log full raw GA4 response before any processing
+      console.log('[Analytics Action] Raw GA4 response:', JSON.parse(JSON.stringify(response)));
+
       console.log('[Analytics Action] Query execution successful. Successes: {SuccessCount}, Failures: {FailureCount}', 
         response.results?.length ?? 0, 
         response.errors?.length ?? 0);
+
+      // Log the average session duration (totalAverageSessionDurationPerUser) for each property
+      if (response.results) {
+        response.results.forEach(r => {
+          console.log(`[Analytics Action] Property ${r.propertyId} averageSessionDurationPerUser (s):`, r.totalAverageSessionDurationPerUser);
+        });
+      }
       
       // Process results to add benchmark columns and New User %
       if (response.results && response.results.length > 0) {

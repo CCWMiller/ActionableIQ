@@ -77,12 +77,12 @@ const formatColumnValue = (value: string, columnName: string, forReport: boolean
 // Helper function to format duration for UI display
 const formatDurationForDisplay = (totalSeconds: number): string => {
   if (isNaN(totalSeconds) || totalSeconds < 0) return '0s';
-  if (totalSeconds >= 60) {
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${String(seconds).padStart(2, '0')}s`;
-  }
-  return `${totalSeconds}s`;
+  
+  // Sticking to seconds with up to two decimal places for precision.
+  // The 's' is appended at the end.
+  const roundedSeconds = parseFloat(totalSeconds.toFixed(2));
+
+  return `${roundedSeconds}s`;
 };
 
 /**
@@ -432,7 +432,7 @@ const QueryResults: React.FC<QueryResultsProps> = ({
             if (value !== undefined && !isNaN(Number(value))) {
                  return formatDurationForDisplay(Number(value)); // Format the direct value
             }
-            return formatDurationForDisplay(0); // Fallback if value is not a number
+            return '0s'; // Fallback if value is not a number
         }
         
         if (internalMetricName === 'New User %') { // internal name for 'Total User %'
@@ -473,20 +473,53 @@ const QueryResults: React.FC<QueryResultsProps> = ({
     // Property's overall new user percentage, used for "Passed Geo Benchmark" in the total row
     const propertyOverallNewUserPercent = singleResult.totalPercentageOfNewUsers || 0;
 
+    // Get the source/medium from the first row, if available.
+    // It's assumed to be consistent for the entire property result set.
+    const sourceMedium = singleResult.rows?.[0]?.dimensionValues?.[1]?.value || 'client-command / email';
+
+
     let totals = {
       totalUsers: singleResult.totalUsers || 0,
       newUsers: singleResult.totalNewUsers || 0,
       activeUsers: singleResult.totalActiveUsers || 0,
-      averageEngagementDuration: singleResult.totalAverageSessionDurationPerUser || 0,
+      averageEngagementDuration: 0, // will compute below
       totalUserPercentForDisplayInTotalRow: totalUserPercentDisplayForTotalRow,
       tosBenchmark: DEFAULT_TOS_BENCHMARK_DISPLAY,
       passedBenchmark: false, // For "Passed TOS Benchmark"
       userPercentBenchmark: USER_PERCENT_BENCHMARK_VALUE_CONST, // New
       passedGeoBenchmark: false, // New, will be calculated below
       totalUserBenchmark: TOTAL_USER_BENCHMARK_VALUE_CONST, // New
-      passedTotalUserBenchmark: false // New
+      passedTotalUserBenchmark: false, // New
+      sourceMedium: sourceMedium, // Added for total row display
     };
 
+    // --- Recalculate averageEngagementDuration using row-level data ---
+    try {
+      const metricNames = singleResult.metricHeaders.map(h => h.name);
+      const activeUsersIdx = metricNames.indexOf('activeUsers');
+      const avgDurationIdx = metricNames.indexOf('averageSessionDurationPerUser');
+
+      if (activeUsersIdx !== -1 && avgDurationIdx !== -1) {
+        let weightedDurationSum = 0;
+        let totalActiveUsersForCalc = 0;
+
+        singleResult.rows.forEach(row => {
+          const activeVal = parseFloat(row.metricValues[activeUsersIdx]?.value || '0');
+          const avgDurVal = parseFloat(row.metricValues[avgDurationIdx]?.value || '0');
+
+          weightedDurationSum += avgDurVal * activeVal;
+          totalActiveUsersForCalc += activeVal;
+        });
+
+        if (totalActiveUsersForCalc > 0) {
+          totals.averageEngagementDuration = weightedDurationSum / totalActiveUsersForCalc; // seconds already
+        }
+      }
+    } catch (err) {
+      console.error('[QueryResults] Error recalculating averageEngagementDuration:', err);
+    }
+
+    // Correctly calculate "Passed TOS Benchmark" for the total row
     totals.passedBenchmark = totals.averageEngagementDuration >= totals.tosBenchmark;
     // Calculate "Passed Geo Benchmark" for the total row using the property's overall new user percentage
     totals.passedGeoBenchmark = propertyOverallNewUserPercent >= totals.userPercentBenchmark;
@@ -528,7 +561,7 @@ const QueryResults: React.FC<QueryResultsProps> = ({
         return (
           <div key={`result-${index}`} className="border rounded p-4">
             <h3 className="text-lg font-semibold mb-2 flex items-center">
-              <span>Property: {propertyMap[singleResult.propertyId] || propertyMap[singleResult.propertyId.replace('properties/', '')] || singleResult.propertyId}</span>
+              <span>Property: {propertyMap[singleResult.propertyId] || propertyMap[singleResult.propertyId.replace('properties/', '')] || singleResult.propertyName || singleResult.propertyId}</span>
               <span className="text-sm text-gray-500 ml-2">({singleResult.propertyId})</span>
               <span className={`ml-4 text-sm px-2 py-1 rounded-full ${totals.passedBenchmark ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                 {totals.passedBenchmark ? 'PASSED TOS BENCHMARK' : 'FAILED TOS BENCHMARK'}
@@ -553,11 +586,27 @@ const QueryResults: React.FC<QueryResultsProps> = ({
                     <tbody>
                       <tr className="bg-gray-200 font-semibold">
                         {orderedDisplayColumns.map((column, colIndex) => {
-                          let cellValue = '';
+                          let cellValue: React.ReactNode = '';
                           if (colIndex === 0) { 
                             cellValue = 'Total';
                           } else if (column.name === formatDisplayColumnHeader('Date Range')) {
                             cellValue = column.value || effectiveDateRange.replace(/\n/g, ' - ');
+                          } else if (column.internalName === 'firstUserSourceMedium') {
+                            cellValue = totals.sourceMedium;
+                          } else if (column.internalName === 'averageSessionDurationPerUser') {
+                            cellValue = formatDurationForDisplay(totals.averageEngagementDuration);
+                          } else if (column.internalName === 'Passed Benchmark') {
+                            const passedStatus = totals.passedBenchmark;
+                            return (
+                              <td 
+                                key={`total-cell-${index}-${colIndex}`} 
+                                className={`py-2 px-4 border text-sm text-right ${column.className || ''}`}
+                              >
+                                <span className={`px-2 py-1 rounded ${passedStatus ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                  {passedStatus ? 'TRUE' : 'FALSE'}
+                                </span>
+                              </td>
+                            );
                           } else {
                             switch (column.name) {
                               case formatDisplayColumnHeader('totalUsers'):
@@ -570,22 +619,21 @@ const QueryResults: React.FC<QueryResultsProps> = ({
                                 cellValue = totals.activeUsers.toString();
                                 break;
                               case formatDisplayColumnHeader('averageSessionDurationPerUser'):
+                                // Use the property-wide average engagement duration already calculated in totals
                                 cellValue = formatDurationForDisplay(totals.averageEngagementDuration);
                                 break;
                               case formatDisplayColumnHeader('TOS Benchmark'):
                                 cellValue = formatDisplayColumnValue(totals.tosBenchmark.toString(), 'TOS Benchmark');
                                 break;
                               case formatDisplayColumnHeader('Passed Benchmark'):
-                                const passedStatus = totals.passedBenchmark.toString();
-                                const formattedValue = formatDisplayColumnValue(passedStatus, 'Passed Benchmark');
-                                const isPassed = formattedValue === 'TRUE';
+                                const passedStatus = totals.passedBenchmark;
                                 return (
                                   <td 
                                     key={`total-cell-${index}-${colIndex}`} 
                                     className={`py-2 px-4 border text-sm text-right ${column.className || ''}`}
                                   >
-                                    <span className={`px-2 py-1 rounded ${isPassed ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                      {isPassed ? 'TRUE' : 'FALSE'}
+                                    <span className={`px-2 py-1 rounded ${passedStatus ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                      {passedStatus ? 'TRUE' : 'FALSE'}
                                     </span>
                                   </td>
                                 );
@@ -593,9 +641,7 @@ const QueryResults: React.FC<QueryResultsProps> = ({
                                 cellValue = formatColumnValue(totals.userPercentBenchmark.toString(), 'User % Benchmark');
                                 break;
                               case formatDisplayColumnHeader('Passed Geo Benchmark'):
-                                const passedGeoStatus = totals.passedGeoBenchmark.toString();
-                                const formattedGeoValue = formatColumnValue(passedGeoStatus, 'Passed Geo Benchmark');
-                                const isGeoPassed = formattedGeoValue === 'TRUE';
+                                const isGeoPassed = totals.passedGeoBenchmark;
                                 return (
                                   <td 
                                     key={`total-cell-${index}-${colIndex}`} 
@@ -610,9 +656,7 @@ const QueryResults: React.FC<QueryResultsProps> = ({
                                 cellValue = formatColumnValue(totals.totalUserBenchmark.toString(), 'Total User Benchmark');
                                 break;
                               case formatDisplayColumnHeader('Passed Total User Benchmark'):
-                                const passedTotalUserStatus = totals.passedTotalUserBenchmark.toString();
-                                const formattedTotalUserValue = formatColumnValue(passedTotalUserStatus, 'Passed Total User Benchmark');
-                                const isTotalUserPassed = formattedTotalUserValue === 'TRUE';
+                                const isTotalUserPassed = totals.passedTotalUserBenchmark;
                                 return (
                                   <td 
                                     key={`total-cell-${index}-${colIndex}`} 

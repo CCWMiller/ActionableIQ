@@ -254,11 +254,14 @@ export const calculateCsvRowTotals = (singleResult: AnalyticsQueryResponse, prop
         };
     }
 
+    // Determine if total average passes TOS benchmark
     totals.passedTosBenchmark = totals.averageEngagementDuration >= totals.tosBenchmark;
     // For the CSV total row, 'Passed Geo Benchmark' should reflect the property-wide new user percentage.
     const propertyOverallNewUserPercent = singleResult.totalPercentageOfNewUsers || 0;
     totals.passedGeoBenchmark = propertyOverallNewUserPercent >= totals.userPercentBenchmark;
     totals.passedTotalUserBenchmark = totals.totalUsers >= totals.totalUserBenchmark;
+
+    // No need to recalculate weighted average; server already provides property-wide average.
 
     return totals;
 };
@@ -312,7 +315,7 @@ export const generateStandardCsvReportData = (
         if (!singleResult || !singleResult.rows) return;
 
         const propertyId = singleResult.propertyId;
-        const propertyName = propertyMap[propertyId] || propertyMap[propertyId.replace(/^properties\//, '')] || propertyId;
+        const propertyName = propertyMap[propertyId] || propertyMap[propertyId.replace(/^properties\//, '')] || singleResult.propertyName || propertyId;
         let currentPropertyTosBenchmark = globalTosBenchmark !== undefined ? globalTosBenchmark : DEFAULT_TOS_BENCHMARK_VALUE;
         
         // For currentPropertyTosBenchmark, check if 'TOS Benchmark' value exists in the first row's metrics.
@@ -342,7 +345,7 @@ export const generateStandardCsvReportData = (
                     case 'newUsers': valueStr = totals.newUsers.toString(); break;
                     case 'activeUsers': valueStr = totals.activeUsers.toString(); break;
                     case 'averageSessionDurationPerUser': // This is for 'Average Session Duration Per User'
-                        valueStr = formatCsvColumnValue(totals.averageEngagementDuration.toFixed(0), column.name); // Use display name for formatting context
+                        valueStr = formatCsvColumnValue(totals.averageEngagementDuration.toFixed(2), column.name); // Use display name for formatting context
                         break;
                     case 'New User %': // This is for 'Total User %' in the CSV total row
                         valueStr = totals.totalUserPercent; // This is now an empty string from calculateCsvRowTotals
